@@ -1,10 +1,19 @@
-# Frontend
+# droso-frontend
 
 Angular 22 application that shows the health of the service and of its PostgreSQL dependency.
 
-All commands below are relative to this `frontend/` directory. It talks to the backend in
-[`../backend`](../backend/README.md) through a single endpoint, `GET /api/v1/health`; the
-[API contract](../backend/README.md#api-contract) is described there.
+It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through a
+single endpoint, `GET /api/v1/health`; the
+[API contract](https://github.com/goodday21/droso-backend/blob/main/backend/README.md#api-contract)
+is described there, and `src/app/health/health.model.ts` follows it.
+
+For local development, clone both repositories next to each other:
+
+```
+IdeaProjects/
+├── droso-backend/
+└── droso-frontend/
+```
 
 ## Running
 
@@ -45,13 +54,13 @@ Two terminals:
 
 ```bash
 # 1) a real PostgreSQL on :5432 (no Docker needed) and the backend on :8080
-cd backend && ./gradlew bootRunWithPostgres
+cd droso-backend/backend && ./gradlew bootRunWithPostgres
 
 # 2) the dev server on :4200
-cd frontend && npm start
+cd droso-frontend && npm start
 ```
 
-`./gradlew runPostgres` and `./gradlew bootRun` in two separate terminals (both in `backend/`) do
+`./gradlew runPostgres` and `./gradlew bootRun` in two separate terminals (both in `droso-backend/backend/`) do
 the same as step 1.
 
 Open <http://localhost:4200/>. The panel shows a green **UP** badge with the database latency.
@@ -63,7 +72,7 @@ Now break the database and press **Refresh** in the panel:
 taskkill /IM postgres.exe /F
 ```
 
-Restart it with `./gradlew runPostgres` in `backend/` in another terminal and press **Refresh**
+Restart it with `./gradlew runPostgres` in `droso-backend/backend/` in another terminal and press **Refresh**
 again — the panel must return to green.
 This proves the UI reacts to a genuinely broken database rather than to a static mock.
 

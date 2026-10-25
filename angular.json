@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "project-with-cline-frontend": {
+    "droso-frontend": {
       "projectType": "application",
       "root": "",
       "sourceRoot": "src",
@@ -24,7 +24,7 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "buildTarget": "project-with-cline-frontend:build",
+            "buildTarget": "droso-frontend:build",
             "proxyConfig": "proxy.conf.json"
           }
         },
