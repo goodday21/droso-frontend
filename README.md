@@ -1,11 +1,13 @@
 # droso-frontend
 
-Angular 22 application that shows the health of the service and of its PostgreSQL dependency.
+Angular 22 application that shows the health of the service and of its PostgreSQL dependency, and
+lets a user sign up and sign in.
 
-It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through a
-single endpoint, `GET /api/v1/health`; the
+It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through
+`GET /api/v1/health`, `POST /api/v1/auth/register` and `POST /api/v1/auth/login`; the
 [API contract](https://github.com/goodday21/droso-backend/blob/main/backend/README.md#api-contract)
-is described there, and `src/app/health/health.model.ts` follows it.
+is described there, and `src/app/health/health.model.ts`, `src/app/auth/auth.model.ts` and
+`src/app/api/api-error.ts` follow it.
 
 For local development, clone both repositories next to each other:
 
@@ -27,7 +29,46 @@ npm run build
 The dev server forwards every `/api` request to the backend on `http://localhost:8080`
 (`proxy.conf.json`), so the backend has to run as well — see [Manual walkthrough](#manual-walkthrough).
 
-Only the root path is a page: any other path shows *Page not found*.
+## Pages
+
+| Path        | Page                                                                    |
+|-------------|-------------------------------------------------------------------------|
+| `/`         | Service health; public, the health endpoint needs no token              |
+| `/register` | Sign up; on success it opens `/login?registered=1` with the email filled |
+| `/login`    | Sign in; on success it keeps the token and opens `/`                    |
+
+Any other path shows *Page not found*.
+
+The access token is kept in `localStorage` (`AuthSessionService`): every tab shares one session, a
+tab opened later is signed in as well, and a sign-in or a sign-out in one tab reaches the others at
+once (`storage` event). The token is not cleared when the browser closes — no page can tell that
+reliably — and is dropped after `expiresIn` seconds (30 minutes). There is no refresh token yet,
+and no request sends the token so far; *Sign out* in the header forgets it.
+
+## Errors of the API
+
+`toApiFailure` (`src/app/api/api-error.ts`) maps a failed call to one of three outcomes:
+
+* `api` — the body is an `ApiError` (`{status, code, message, fieldErrors}`);
+* `unreachable` — no response at all (status 0);
+* `unexpected` — a response that is not an `ApiError`, whatever its status. With the dev server, a
+  stopped backend gives a 5xx of the proxy, not status 0, so the status alone does not decide.
+
+The forms check only that the fields are filled and not longer than the backend accepts. The rules
+of the email and of the password belong to the backend: its `fieldErrors` are shown under the
+fields (several errors of one field are split on `; `) and disappear when the field is edited. An
+error of a field that the form does not have, and any failure without `fieldErrors`, is shown
+above the form:
+
+| Answer                          | Shown as                                                    |
+|---------------------------------|-------------------------------------------------------------|
+| 400 `VALIDATION_ERROR`          | The messages under the fields                               |
+| 409 `EMAIL_ALREADY_REGISTERED`  | *is already registered* under the email, with *Sign in instead* |
+| 403 `REGISTRATION_DISABLED`     | *Registration is currently disabled*; the button is disabled |
+| 401 `INVALID_CREDENTIALS`       | *Invalid email or password*, bound to no field; the password is cleared |
+| 500 `INTERNAL_ERROR`, `unexpected` | *Something went wrong. Please try again later.*          |
+| `unreachable`                   | *The service is not reachable*                              |
+| any other code                  | The `message` of the backend, which is fixed per code       |
 
 `HealthApiService` maps the HTTP status to three explicit outcomes:
 
@@ -78,6 +119,20 @@ This proves the UI reacts to a genuinely broken database rather than to a static
 
 To see the third state, stop the backend (`Ctrl+C` in terminal 1) and press **Refresh**: the panel
 shows *not reachable* instead of *DOWN*, because the service itself no longer answers.
+
+### Signing up and in
+
+The backend needs `DROSO_JWT_SECRET` (see its README). With both running, open
+<http://localhost:4200/register>:
+
+1. Register `qwe@gmail.com` with `secret`: every violated rule of the password is listed under it.
+2. Register with `Sup3r-Secret!`: the sign-in page opens with *Registration complete* and the email.
+3. Go back to `/register` and register the same email again: *is already registered* with a link to
+   sign in.
+4. Sign in with a wrong password: *Invalid email or password*, the password field is emptied.
+5. Sign in with the right one: the health page opens and the header shows *Sign out*.
+6. Stop the backend and sign in again: a message above the form, *not reachable* or *Something went
+   wrong*, depending on whether the dev server proxy answers with an error of its own.
 
 ## Notes for Windows
 
