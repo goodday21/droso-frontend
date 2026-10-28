@@ -23,6 +23,7 @@ IdeaProjects/
 npm install
 npm start                  # dev server on http://localhost:4200, proxies /api to :8080
 npm test                   # unit tests (ChromeHeadless)
+npm run e2e                # browser tests, no backend needed — see Browser tests
 npm run build
 ```
 
@@ -88,6 +89,31 @@ In watch mode Karma serves a UI at <http://localhost:9876/> — open it, tick th
 want to see, and use the "Debug" button to inspect the DOM of a failing expectation.
 
 To run a single spec, narrow the pattern, e.g. `ng test --watch --include='**/health-api.service.spec.ts'`.
+
+## Browser tests
+
+Playwright drives the sign-up and sign-in pages in Chromium (`e2e/`, `playwright.config.ts`):
+
+```bash
+npx playwright install chromium   # once, and after an update of @playwright/test
+npm run e2e                       # headless; starts the dev server, or uses a running `npm start`
+npm run e2e:ui                    # the UI mode of Playwright: pick tests, watch them, inspect the DOM
+npx playwright show-report        # the HTML report of the last run
+```
+
+The tests of `e2e/mocked/` need no backend: `e2e/support/auth-api.ts` answers every call of the
+API in the browser, so they also cover the answers a running backend rarely gives — a disabled
+registration, an internal error, a stopped backend behind the proxy, no network. Each test sets
+the answers it expects; a call it did not mock fails it.
+
+* `e2e/pages/` — page objects of the two forms and of the header;
+* `e2e/support/responses.ts` — the answers of the backend, following its API contract;
+* `e2e/support/session.ts` — reading and seeding the session in `localStorage`.
+
+To run one file or one test: `npm run e2e -- e2e/mocked/login.spec.ts` or `npm run e2e -- -g "pending"`.
+
+On CI the job *Browser tests* runs after *Unit tests and build*; when it fails, the HTML report
+with the traces of the failed tests is attached to the run as `playwright-report`.
 
 ## Manual walkthrough
 
