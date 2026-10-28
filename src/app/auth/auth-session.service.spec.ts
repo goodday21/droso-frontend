@@ -1,0 +1,77 @@
+import { TestBed } from '@angular/core/testing';
+import { AuthSessionService } from './auth-session.service';
+
+describe('AuthSessionService', () => {
+  const key = 'droso.session';
+
+  beforeEach(() => localStorage.removeItem(key));
+  afterEach(() => localStorage.removeItem(key));
+
+  /** Another instance stands for another tab, or for a tab opened after this one was closed. */
+  function anotherTab(): AuthSessionService {
+    return TestBed.runInInjectionContext(() => new AuthSessionService());
+  }
+
+  it('has no token at first', () => {
+    const session = TestBed.inject(AuthSessionService);
+
+    expect(session.accessToken()).toBeNull();
+    expect(session.isAuthenticated()).toBeFalse();
+  });
+
+  it('keeps a saved token in localStorage, for every tab', () => {
+    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
+
+    expect(anotherTab().accessToken()).toBe('eyJ.x.y');
+  });
+
+  it('forgets an expired token', () => {
+    const now = Date.now();
+    const session = TestBed.inject(AuthSessionService);
+    session.save('eyJ.x.y', 1800);
+
+    spyOn(Date, 'now').and.returnValue(now + 1801 * 1000);
+
+    expect(session.accessToken()).toBeNull();
+    expect(session.isAuthenticated()).toBeFalse();
+  });
+
+  it('clears the token and the storage', () => {
+    const session = TestBed.inject(AuthSessionService);
+    session.save('eyJ.x.y', 1800);
+
+    session.clear();
+
+    expect(session.accessToken()).toBeNull();
+    expect(localStorage.getItem(key)).toBeNull();
+  });
+
+  it('follows a sign-in and a sign-out made in another tab', () => {
+    const session = TestBed.inject(AuthSessionService);
+    const other = anotherTab();
+
+    // The browser fires `storage` only in the other tabs; a test has to dispatch it itself.
+    other.save('eyJ.x.y', 1800);
+    window.dispatchEvent(new StorageEvent('storage', { key }));
+    expect(session.accessToken()).toBe('eyJ.x.y');
+
+    other.clear();
+    window.dispatchEvent(new StorageEvent('storage', { key }));
+    expect(session.isAuthenticated()).toBeFalse();
+  });
+
+  it('ignores a change of another key', () => {
+    const session = TestBed.inject(AuthSessionService);
+    localStorage.setItem(key, JSON.stringify({ accessToken: 'eyJ.x.y', expiresAt: Date.now() + 1000 }));
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'something.else' }));
+
+    expect(session.accessToken()).toBeNull();
+  });
+
+  it('ignores a corrupted stored value', () => {
+    localStorage.setItem(key, '{not json');
+
+    expect(TestBed.inject(AuthSessionService).accessToken()).toBeNull();
+  });
+});

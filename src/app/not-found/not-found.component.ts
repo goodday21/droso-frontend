@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 /**
- * Shown for every path except the root: the application has no other pages.
+ * Shown for every path that is not a page of the application.
  */
 @Component({
   selector: 'app-not-found',
