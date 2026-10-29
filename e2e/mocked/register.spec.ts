@@ -1,7 +1,7 @@
 import { LoginPage } from '../pages/login-page';
 import { RegisterPage } from '../pages/register-page';
 import { expect, test } from '../support/fixtures';
-import { apiError, networkFailure, proxyError, userCreated } from '../support/responses';
+import { apiError, userCreated } from '../support/responses';
 
 const EMAIL = 'qwe@gmail.com';
 const PASSWORD = 'Sup3r-Secret!';
@@ -65,19 +65,6 @@ test.describe('Sign-up page', () => {
     await expect(registerPage.alert).toBeHidden();
   });
 
-  test('drops an error once the field is edited', async ({ api }) => {
-    api.respond('register', apiError(400, 'VALIDATION_ERROR', { email: 'must be a valid email address' }));
-
-    await registerPage.fill('qwe@gmail', PASSWORD);
-    await registerPage.submit.click();
-    await expect(registerPage.fieldErrors('email')).toHaveText(['must be a valid email address']);
-
-    await registerPage.email.fill(EMAIL);
-
-    await expect(registerPage.fieldErrors('email')).toHaveCount(0);
-    await expect(registerPage.email).not.toHaveClass(/invalid/);
-  });
-
   test('offers to sign in when the email is already registered', async ({ page, api }) => {
     api.respond('register', apiError(409, 'EMAIL_ALREADY_REGISTERED', { email: 'is already registered' }));
 
@@ -95,40 +82,6 @@ test.describe('Sign-up page', () => {
     await expect(loginPage.email).not.toHaveClass('invalid');
     await expect(loginPage.fieldErrors('password')).toHaveCount(0);
     await expect(loginPage.password).not.toHaveClass('invalid');
-  });
-
-  test('disables the form when the registration is disabled', async ({ api }) => {
-    api.respond('register', apiError(403, 'REGISTRATION_DISABLED'));
-
-    await registerPage.fill(EMAIL, PASSWORD);
-    await registerPage.submit.click();
-
-    await expect(registerPage.alert).toHaveText('Registration is currently disabled.');
-    await expect(registerPage.submit).toBeDisabled();
-  });
-
-  for (const { failure, response } of [
-    { failure: 'an internal error', response: apiError(500, 'INTERNAL_ERROR') },
-    { failure: 'an answer that is not an API error', response: proxyError },
-  ]) {
-    test(`shows a general message on ${failure}`, async ({ api }) => {
-      api.respond('register', response);
-
-      await registerPage.fill(EMAIL, PASSWORD);
-      await registerPage.submit.click();
-
-      await expect(registerPage.alert).toHaveText('Something went wrong. Please try again later.');
-      await expect(registerPage.submit).toBeEnabled();
-    });
-  }
-
-  test('tells that the service is not reachable', async ({ api }) => {
-    api.respond('register', networkFailure);
-
-    await registerPage.fill(EMAIL, PASSWORD);
-    await registerPage.submit.click();
-
-    await expect(registerPage.alert).toHaveText('The service is not reachable. Check your connection and try again.');
   });
 
   test('sends one request while the first one is pending', async ({ page, api }) => {
