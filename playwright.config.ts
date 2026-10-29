@@ -29,16 +29,17 @@ export default defineConfig({
       testDir: './e2e/mocked',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'integration-setup',
-      testDir: './e2e/integration',
-      testMatch: /.*\.setup\.ts/,
-    },
+    // Before its setup on purpose: the UI mode first ticks only the first project of the list.
     {
       name: 'integration',
       testDir: './e2e/integration',
       dependencies: ['integration-setup'],
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'integration-setup',
+      testDir: './e2e/integration',
+      testMatch: /.*\.setup\.ts/,
     },
   ],
   webServer: {

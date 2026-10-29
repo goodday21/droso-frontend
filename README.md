@@ -120,8 +120,13 @@ first, as in [Manual walkthrough](#manual-walkthrough) (`./gradlew bootRunWithPo
 `DROSO_JWT_SECRET` set):
 
 ```bash
-npm run e2e:integration
+npm run e2e:integration      # headless
+npm run e2e:integration:ui   # the UI mode of Playwright
 ```
+
+The UI mode does not run the dependencies of a project: the check of the backend runs there only
+when the project `integration-setup` is ticked as well (the arrow left of *Filter*, then
+*Projects*). Without the backend the tests simply fail.
 
 They check what the mocked tests cannot: that the pages and the real API agree — a sign-up and a
 sign-in end to end, the password rules of the backend, a taken email, a wrong password. Every test
