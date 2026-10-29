@@ -24,6 +24,7 @@ npm install
 npm start                  # dev server on http://localhost:4200, proxies /api to :8080
 npm test                   # unit tests (ChromeHeadless)
 npm run e2e                # browser tests, no backend needed — see Browser tests
+npm run e2e:integration    # browser tests against the running backend
 npm run build
 ```
 
@@ -112,8 +113,43 @@ the answers it expects; a call it did not mock fails it.
 
 To run one file or one test: `npm run e2e -- e2e/mocked/login.spec.ts` or `npm run e2e -- -g "pending"`.
 
-On CI the job *Browser tests* runs after *Unit tests and build*; when it fails, the HTML report
-with the traces of the failed tests is attached to the run as `playwright-report`.
+### Against the real backend
+
+The tests of `e2e/integration/` go through the proxy of the dev server to the backend, so start it
+first, as in [Manual walkthrough](#manual-walkthrough) (`./gradlew bootRunWithPostgres` with
+`DROSO_JWT_SECRET` set):
+
+```bash
+npm run e2e:integration      # headless
+npm run e2e:integration:ui   # the UI mode of Playwright
+```
+
+The UI mode does not run the dependencies of a project: the check of the backend runs there only
+when the project `integration-setup` is ticked as well (the arrow left of *Filter*, then
+*Projects*). Without the backend the tests simply fail.
+
+They check what the mocked tests cannot: that the pages and the real API agree — a sign-up and a
+sign-in end to end, the password rules of the backend, a taken email, a wrong password. Every test
+registers its own `e2e-<time>-<random>@example.com`, so the database needs no cleaning, and its
+users simply pile up. Before the tests, the project `integration-setup` checks
+`GET /api/v1/health` and stops the run with a hint when the backend does not answer.
+
+### On CI
+
+After *Unit tests and build*, two jobs run in parallel:
+
+* *Browser tests (mocked API)* — `npm run e2e`; on a failure the HTML report with the traces of the
+  failed tests is attached to the run as `playwright-report`.
+* *Browser tests (real backend)* — checks out `main` of `goodday21/droso-backend`, starts it with
+  `./gradlew bootRunWithPostgres` (embedded PostgreSQL, a new `DROSO_JWT_SECRET` on every run),
+  waits for its health, then runs `npm run e2e:integration`. On a failure the report and the log of
+  the backend are attached as `playwright-report-integration`.
+
+The backend repository is private: the job checks it out with a read-only deploy key of it, kept in
+the secret `BACKEND_DEPLOY_KEY` of this repository. Pull requests from forks get no secrets, so
+this job fails for them.
+
+Both jobs set up Node and Playwright with the local action `.github/actions/setup-playwright`.
 
 ## Manual walkthrough
 
