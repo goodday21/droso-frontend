@@ -7,6 +7,10 @@ const CI = !!process.env['CI'];
  *
  * The project `mocked` answers every call of the API in the browser (`e2e/support/auth-api.ts`), so
  * it needs no backend: the requests never reach the proxy of the dev server.
+ *
+ * The project `integration` goes through the proxy to the real backend on `localhost:8080`. It
+ * depends on `integration-setup`, which first checks that the backend answers; a `globalSetup` would
+ * run for `mocked` as well.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -23,6 +27,17 @@ export default defineConfig({
     {
       name: 'mocked',
       testDir: './e2e/mocked',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'integration-setup',
+      testDir: './e2e/integration',
+      testMatch: /.*\.setup\.ts/,
+    },
+    {
+      name: 'integration',
+      testDir: './e2e/integration',
+      dependencies: ['integration-setup'],
       use: { ...devices['Desktop Chrome'] },
     },
   ],

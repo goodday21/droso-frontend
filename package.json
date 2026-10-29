@@ -7,7 +7,8 @@
     "build": "ng build",
     "test": "ng test --watch=false --browsers=ChromeHeadless",
     "e2e": "playwright test --project=mocked",
-    "e2e:ui": "playwright test --project=mocked --ui"
+    "e2e:ui": "playwright test --project=mocked --ui",
+    "e2e:integration": "playwright test --project=integration"
   },
   "dependencies": {
     "@angular/common": "^22.2.0",
