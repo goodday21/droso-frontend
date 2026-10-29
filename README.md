@@ -103,9 +103,13 @@ npx playwright show-report        # the HTML report of the last run
 ```
 
 The tests of `e2e/mocked/` need no backend: `e2e/support/auth-api.ts` answers every call of the
-API in the browser, so they also cover the answers a running backend rarely gives — a disabled
-registration, an internal error, a stopped backend behind the proxy, no network. Each test sets
-the answers it expects; a call it did not mock fails it.
+API in the browser. Each test sets the answers it expects; a call it did not mock fails it.
+
+They check only what needs a real browser: typing and clicks, navigation and titles, the session
+in `localStorage` across a reload and across tabs, a second click while a request is pending.
+What each answer of the API shows on a page — every error code, a stopped backend, no network —
+is checked by the unit and component tests. The skill `.claude/skills/test-pyramid` describes
+where each kind of test belongs.
 
 * `e2e/pages/` — page objects of the two forms and of the header;
 * `e2e/support/responses.ts` — the answers of the backend, following its API contract;
