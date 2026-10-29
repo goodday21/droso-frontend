@@ -10,7 +10,8 @@ import { fieldMessages, showFailure } from './form-errors';
  * Signs a user in, keeps the access token and sends them to the root page.
  *
  * After a registration the page is opened with `?registered=1` and the email in the navigation
- * state; the email is not put into the URL, so it is lost on a reload, and the user types it again.
+ * state. The email is not put into the URL; the browser keeps the state in the history of the tab,
+ * so a reload restores the email, while the same URL opened in a new tab comes without it.
  */
 @Component({
   selector: 'app-login-page',

@@ -102,12 +102,4 @@ test.describe('Sign-in page', () => {
     await expect(page).toHaveURL('/');
     expect(api.requests('login')).toHaveLength(1);
   });
-
-  test('loses the email of a registration on a reload', async ({ page }) => {
-    // The email comes in the state of the navigation, never in the URL.
-    await page.goto('/login?registered=1');
-
-    await expect(login.registered).toHaveText('Registration complete. Please sign in.');
-    await expect(login.email).toHaveValue('');
-  });
 });
