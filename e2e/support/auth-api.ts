@@ -3,12 +3,10 @@ import { BrowserContext, Route } from '@playwright/test';
 export type AuthEndpoint = 'register' | 'login';
 
 /** How a mocked endpoint answers. */
-export type MockResponse =
-  | { status: number; json: unknown }
-  /** A body that is not an `ApiError`, such as the error page of the dev server proxy. */
-  | { status: number; html: string }
-  /** No response at all, as with a network error. */
-  | { abort: true };
+export interface MockResponse {
+  status: number;
+  json: unknown;
+}
 
 const HEALTH_UP = {
   status: 'UP',
@@ -70,13 +68,6 @@ export class AuthApiMock {
       return;
     }
     await entry.gate;
-    const { response } = entry;
-    if ('abort' in response) {
-      await route.abort('failed');
-    } else if ('html' in response) {
-      await route.fulfill({ status: response.status, contentType: 'text/html', body: response.html });
-    } else {
-      await route.fulfill({ status: response.status, json: response.json });
-    }
+    await route.fulfill({ status: entry.response.status, json: entry.response.json });
   }
 }

@@ -23,7 +23,10 @@ describe('LoginPageComponent', () => {
     page = await harness.navigateByUrl('/login', LoginPageComponent);
   });
 
-  afterEach(() => localStorage.removeItem('droso.session'));
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.removeItem('droso.session');
+  });
 
   function element(): HTMLElement {
     return harness.routeNativeElement as HTMLElement;
@@ -54,6 +57,8 @@ describe('LoginPageComponent', () => {
     expect(TestBed.inject(AuthSessionService).accessToken()).toBe('eyJ.x.y');
     expect(TestBed.inject(Router).url).toBe('/');
     expect(harness.routeDebugElement!.componentInstance).toBeInstanceOf(HealthPageComponent);
+    // The health page checks the backend as soon as it opens.
+    httpMock.expectOne('/api/v1/health');
   });
 
   it('tells that the credentials are invalid without naming a field, and clears the password', () => {
@@ -87,7 +92,7 @@ describe('LoginPageComponent', () => {
     expect(errorsOf('email')).toEqual(['must be at most 254 characters']);
   });
 
-  it('does not read an answer of the proxy as an error of the backend', () => {
+  it('does not read an answer of the proxy as an error of the backend, and keeps the password', () => {
     fillAndSubmit();
     httpMock
       .expectOne('/api/v1/auth/login')
@@ -95,6 +100,30 @@ describe('LoginPageComponent', () => {
     harness.detectChanges();
 
     expect(element().querySelector('[role=alert]')?.textContent).toContain('try again later');
+    expect(page.form.controls.password.value).toBe('Sup3r-Secret!');
+  });
+
+  it('does not show the message of an internal error, and keeps the password', () => {
+    fillAndSubmit();
+    httpMock.expectOne('/api/v1/auth/login').flush(
+      { status: 500, code: 'INTERNAL_ERROR', message: 'Internal server error', fieldErrors: {} },
+      { status: 500, statusText: 'Internal Server Error' },
+    );
+    harness.detectChanges();
+
+    expect(element().querySelector('[role=alert]')?.textContent).toContain('try again later');
+    expect(page.form.controls.password.value).toBe('Sup3r-Secret!');
+    expect(element().querySelector<HTMLButtonElement>('button[type=submit]')!.disabled).toBeFalse();
+  });
+
+  it('tells that the service is not reachable', () => {
+    fillAndSubmit();
+    httpMock
+      .expectOne('/api/v1/auth/login')
+      .error(new ProgressEvent('network error'), { status: 0, statusText: 'Unknown Error' });
+    harness.detectChanges();
+
+    expect(element().querySelector('[role=alert]')?.textContent).toContain('not reachable');
   });
 
   it('does not send a password longer than the backend accepts', () => {

@@ -40,7 +40,7 @@ describe('RegisterPageComponent', () => {
     harness.detectChanges();
   }
 
-  function answer(body: object, status: number): void {
+  function answer(body: object | string, status: number): void {
     httpMock.expectOne('/api/v1/auth/register').flush(body, { status, statusText: 'Error' });
     harness.detectChanges();
   }
@@ -122,6 +122,14 @@ describe('RegisterPageComponent', () => {
   it('does not show the message of an internal error', () => {
     fillAndSubmit();
     answer(apiError(500, 'INTERNAL_ERROR'), 500);
+
+    expect(element().querySelector('[role=alert]')?.textContent).toContain('try again later');
+    expect(element().querySelector<HTMLButtonElement>('button[type=submit]')!.disabled).toBeFalse();
+  });
+
+  it('does not read an answer of the proxy as an error of the backend', () => {
+    fillAndSubmit();
+    answer('Error occurred while trying to proxy', 504);
 
     expect(element().querySelector('[role=alert]')?.textContent).toContain('try again later');
   });

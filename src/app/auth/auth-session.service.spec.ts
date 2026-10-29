@@ -36,6 +36,19 @@ describe('AuthSessionService', () => {
     expect(session.isAuthenticated()).toBeFalse();
   });
 
+  it('forgets the token at the very moment it expires', () => {
+    const now = Date.now();
+    spyOn(Date, 'now').and.returnValue(now);
+    const session = TestBed.inject(AuthSessionService);
+    session.save('eyJ.x.y', 1800);
+
+    (Date.now as jasmine.Spy).and.returnValue(now + 1800 * 1000 - 1);
+    expect(session.accessToken()).toBe('eyJ.x.y');
+
+    (Date.now as jasmine.Spy).and.returnValue(now + 1800 * 1000);
+    expect(session.accessToken()).toBeNull();
+  });
+
   it('clears the token and the storage', () => {
     const session = TestBed.inject(AuthSessionService);
     session.save('eyJ.x.y', 1800);

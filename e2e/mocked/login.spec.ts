@@ -1,7 +1,7 @@
 import { AppHeader } from '../pages/app-header';
 import { LoginPage } from '../pages/login-page';
 import { expect, test } from '../support/fixtures';
-import { ACCESS_TOKEN, apiError, loggedIn, networkFailure, proxyError } from '../support/responses';
+import { ACCESS_TOKEN, apiError, loggedIn } from '../support/responses';
 import { readSession } from '../support/session';
 
 const EMAIL = 'qwe@gmail.com';
@@ -62,30 +62,6 @@ test.describe('Sign-in page', () => {
     await expect(login.fieldErrors('email')).toHaveCount(0);
     await expect(login.fieldErrors('password')).toHaveCount(0);
     expect(await readSession(page)).toBeNull();
-  });
-
-  for (const { failure, response } of [
-    { failure: 'an internal error', response: apiError(500, 'INTERNAL_ERROR') },
-    { failure: 'an answer that is not an API error', response: proxyError },
-  ]) {
-    test(`shows a general message on ${failure}`, async ({ api }) => {
-      api.respond('login', response);
-
-      await login.fill(EMAIL, PASSWORD);
-      await login.submit.click();
-
-      await expect(login.alert).toHaveText('Something went wrong. Please try again later.');
-      await expect(login.password).toHaveValue(PASSWORD);
-    });
-  }
-
-  test('tells that the service is not reachable', async ({ api }) => {
-    api.respond('login', networkFailure);
-
-    await login.fill(EMAIL, PASSWORD);
-    await login.submit.click();
-
-    await expect(login.alert).toHaveText('The service is not reachable. Check your connection and try again.');
   });
 
   test('sends one request while the first one is pending', async ({ page, api }) => {

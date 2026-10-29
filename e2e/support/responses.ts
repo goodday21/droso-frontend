@@ -26,11 +26,3 @@ const MESSAGES: Record<string, string> = {
 export function apiError(status: number, code: string, fieldErrors: Record<string, string> = {}): MockResponse {
   return { status, json: { status, code, message: MESSAGES[code] ?? code, fieldErrors } };
 }
-
-/** What the dev server proxy answers when the backend is down: an error, but not an `ApiError`. */
-export const proxyError: MockResponse = {
-  status: 504,
-  html: '<html><body><h1>504 Gateway Timeout</h1></body></html>',
-};
-
-export const networkFailure: MockResponse = { abort: true };
