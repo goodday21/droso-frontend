@@ -21,7 +21,7 @@ test.describe('Sign-up page', () => {
 
     await expect(registerPage.fieldErrors('email')).toHaveText(['is required']);
     await expect(registerPage.fieldErrors('password')).toHaveText(['is required']);
-    expect(api.requests('register')).toEqual([]);
+    expect(api.requests('POST /auth/register')).toEqual([]);
   });
 
   test('limits the length of both fields and sends nothing', async ({ api }) => {
@@ -30,12 +30,12 @@ test.describe('Sign-up page', () => {
 
     await expect(registerPage.fieldErrors('email')).toHaveText(['must be at most 254 characters']);
     await expect(registerPage.fieldErrors('password')).toHaveText(['must be at most 64 characters']);
-    expect(api.requests('register')).toEqual([]);
+    expect(api.requests('POST /auth/register')).toEqual([]);
   });
 
   test('opens the sign-in page with the email of the response', async ({ page, api }) => {
     // The backend lowers the email: the page shows the stored one, not the one typed.
-    api.respond('register', userCreated(EMAIL));
+    api.respond('POST /auth/register', userCreated(EMAIL));
 
     await registerPage.fill('Qwe@Gmail.com', PASSWORD);
     await registerPage.submit.click();
@@ -45,12 +45,12 @@ test.describe('Sign-up page', () => {
     await expect(login.registered).toHaveText('Registration complete. Please sign in.');
     await expect(login.email).toHaveValue(EMAIL);
     await expect(login.password).toHaveValue('');
-    expect(api.requests('register')).toEqual([{ email: 'Qwe@Gmail.com', password: PASSWORD }]);
+    expect(api.requests('POST /auth/register')).toEqual([{ email: 'Qwe@Gmail.com', password: PASSWORD }]);
   });
 
   test('lists every rule of the password that the backend reports', async ({ api }) => {
     api.respond(
-      'register',
+      'POST /auth/register',
       apiError(400, 'VALIDATION_ERROR', { password: 'must contain a digit; must contain an upper case letter' }),
     );
 
@@ -66,7 +66,7 @@ test.describe('Sign-up page', () => {
   });
 
   test('offers to sign in when the email is already registered', async ({ page, api }) => {
-    api.respond('register', apiError(409, 'EMAIL_ALREADY_REGISTERED', { email: 'is already registered' }));
+    api.respond('POST /auth/register', apiError(409, 'EMAIL_ALREADY_REGISTERED', { email: 'is already registered' }));
 
     await registerPage.fill(EMAIL, PASSWORD);
     await registerPage.submit.click();
@@ -85,7 +85,7 @@ test.describe('Sign-up page', () => {
   });
 
   test('sends one request while the first one is pending', async ({ page, api }) => {
-    const release = api.hold('register', userCreated(EMAIL));
+    const release = api.hold('POST /auth/register', userCreated(EMAIL));
 
     await registerPage.fill(EMAIL, PASSWORD);
     await registerPage.submit.click();
@@ -96,6 +96,6 @@ test.describe('Sign-up page', () => {
     release();
 
     await expect(page).toHaveURL('/login?registered=1');
-    expect(api.requests('register')).toHaveLength(1);
+    expect(api.requests('POST /auth/register')).toHaveLength(1);
   });
 });

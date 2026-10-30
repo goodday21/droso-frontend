@@ -1,10 +1,11 @@
 # droso-frontend
 
 Angular 22 application that shows the health of the service and of its PostgreSQL dependency, and
-lets a user sign up and sign in.
+lets a user sign up and sign in. The header of every page shows the role of the signed-in user.
 
 It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through
-`GET /api/v1/health`, `POST /api/v1/auth/register` and `POST /api/v1/auth/login`; the
+`GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login` and
+`GET /api/v1/auth/me`; the
 [API contract](https://github.com/goodday21/droso-backend/blob/main/backend/README.md#api-contract)
 is described there, and `src/app/health/health.model.ts`, `src/app/auth/auth.model.ts` and
 `src/app/api/api-error.ts` follow it.
@@ -44,8 +45,19 @@ Any other path shows *Page not found*.
 The access token is kept in `localStorage` (`AuthSessionService`): every tab shares one session, a
 tab opened later is signed in as well, and a sign-in or a sign-out in one tab reaches the others at
 once (`storage` event). The token is not cleared when the browser closes — no page can tell that
-reliably — and is dropped after `expiresIn` seconds (30 minutes). There is no refresh token yet,
-and no request sends the token so far; *Sign out* in the header forgets it.
+reliably — and is dropped after `expiresIn` seconds (30 minutes). There is no refresh token yet;
+*Sign out* in the header forgets it.
+
+`authInterceptor` sends the token as `Authorization: Bearer …` to every call of the API except
+`health`, `auth/register` and `auth/login`: the backend rejects an invalid token with 401 even on a
+public endpoint, so an old token must not reach the sign-in.
+
+The header shows *Role: USER*, *MANAGER* or *ADMIN* to a signed-in user, on every page.
+`CurrentUserService` reads it from `GET /api/v1/auth/me` once per token (at the start, on a
+sign-in, on a sign-in in another tab), not from the claim `role` of the token: the claim is the role
+at the login, while the backend applies a change of the role at once and lists the permissions as
+well. Until the answer comes, and when the call fails, the header shows no role. A 401 means that
+the backend no longer accepts the token (revoked, or the user deleted): the session is cleared.
 
 ## Errors of the API
 
@@ -102,8 +114,10 @@ npm run e2e:ui                    # the UI mode of Playwright: pick tests, watch
 npx playwright show-report        # the HTML report of the last run
 ```
 
-The tests of `e2e/mocked/` need no backend: `e2e/support/auth-api.ts` answers every call of the
-API in the browser. Each test sets the answers it expects; a call it did not mock fails it.
+The tests of `e2e/mocked/` need no backend: `ApiMock` (`e2e/support/api-mock.ts`) answers every
+call of the API in the browser, keyed by the method and the path, e.g. `api.respond('GET /auth/me',
+currentUser())`. Only the health endpoint is UP by default; every other answer is set by the test,
+and a call it did not mock fails it.
 
 They check only what needs a real browser: typing and clicks, navigation and titles, the session
 in `localStorage` across a reload and across tabs, a second click while a request is pending.
@@ -111,7 +125,7 @@ What each answer of the API shows on a page — every error code, a stopped back
 is checked by the unit and component tests. The skill `.claude/skills/test-pyramid` describes
 where each kind of test belongs.
 
-* `e2e/pages/` — page objects of the two forms and of the header;
+* `e2e/pages/` — page objects of the two forms and of the header (with the role);
 * `e2e/support/responses.ts` — the answers of the backend, following its API contract;
 * `e2e/support/session.ts` — reading and seeding the session in `localStorage`.
 
@@ -196,7 +210,8 @@ The backend needs `DROSO_JWT_SECRET` (see its README). With both running, open
 3. Go back to `/register` and register the same email again: *is already registered* with a link to
    sign in.
 4. Sign in with a wrong password: *Invalid email or password*, the password field is emptied.
-5. Sign in with the right one: the health page opens and the header shows *Sign out*.
+5. Sign in with the right one: the health page opens and the header shows *Role: USER* and
+   *Sign out*.
 6. Stop the backend and sign in again: a message above the form, *not reachable* or *Something went
    wrong*, depending on whether the dev server proxy answers with an error of its own.
 

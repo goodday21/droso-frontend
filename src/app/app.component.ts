@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { AuthSessionService } from './auth/auth-session.service';
+import { CurrentUserService } from './auth/current-user.service';
 
 @Component({
   selector: 'app-root',
@@ -12,6 +13,9 @@ import { AuthSessionService } from './auth/auth-session.service';
         <a routerLink="/">Service health</a>
         <span class="spacer"></span>
         @if (session.isAuthenticated()) {
+          @if (currentUser.user(); as user) {
+            <span class="role">Role: {{ user.role }}</span>
+          }
           <button type="button" (click)="session.clear()">Sign out</button>
         } @else {
           <a routerLink="/login">Sign in</a>
@@ -40,4 +44,5 @@ import { AuthSessionService } from './auth/auth-session.service';
 })
 export class AppComponent {
   protected readonly session = inject(AuthSessionService);
+  protected readonly currentUser = inject(CurrentUserService);
 }

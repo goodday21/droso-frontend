@@ -5,7 +5,7 @@ const CI = !!process.env['CI'];
 /**
  * Browser tests of the pages, run against the dev server.
  *
- * The project `mocked` answers every call of the API in the browser (`e2e/support/auth-api.ts`), so
+ * The project `mocked` answers every call of the API in the browser (`e2e/support/api-mock.ts`), so
  * it needs no backend: the requests never reach the proxy of the dev server.
  *
  * The project `integration` goes through the proxy to the real backend on `localhost:8080`. It

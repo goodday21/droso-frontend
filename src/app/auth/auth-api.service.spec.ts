@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ApiResult } from '../api/api-error';
 import { AuthApiService } from './auth-api.service';
-import { LoginResponse, UserResponse } from './auth.model';
+import { CurrentUser, LoginResponse, UserResponse } from './auth.model';
 
 describe('AuthApiService', () => {
   let service: AuthApiService;
@@ -84,5 +84,23 @@ describe('AuthApiService', () => {
       .error(new ProgressEvent('network error'), { status: 0, statusText: 'Unknown Error' });
 
     expect(result).toEqual({ ok: false, failure: { kind: 'unreachable' } });
+  });
+
+  it('reads the current user with GET /api/v1/auth/me', () => {
+    const user: CurrentUser = {
+      id: 1,
+      email: 'qwe.qwe+1@gmail.com',
+      role: 'MANAGER',
+      permissions: ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE'],
+      createdAt: '2026-10-27T10:15:30.123456Z',
+    };
+    let result: ApiResult<CurrentUser> | undefined;
+    service.me().subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne('/api/v1/auth/me');
+    expect(request.request.method).toBe('GET');
+    request.flush(user);
+
+    expect(result).toEqual({ ok: true, body: user });
   });
 });

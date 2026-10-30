@@ -2,13 +2,14 @@ import { Page } from '@playwright/test';
 import { AppHeader } from '../pages/app-header';
 import { LoginPage } from '../pages/login-page';
 import { RegisterPage } from '../pages/register-page';
-import { AuthApiMock } from '../support/auth-api';
+import { ApiMock } from '../support/api-mock';
 import { expect, test } from '../support/fixtures';
-import { ACCESS_TOKEN, loggedIn } from '../support/responses';
+import { ACCESS_TOKEN, currentUser, loggedIn } from '../support/responses';
 import { readSession, seedSession } from '../support/session';
 
-async function signIn(page: Page, api: AuthApiMock): Promise<void> {
-  api.respond('login', loggedIn());
+async function signIn(page: Page, api: ApiMock): Promise<void> {
+  api.respond('POST /auth/login', loggedIn());
+  api.respond('GET /auth/me', currentUser('MANAGER'));
   const login = new LoginPage(page);
   await login.open();
   await login.fill('qwe@gmail.com', 'Sup3r-Secret!');
@@ -20,6 +21,12 @@ async function expectSignedOut(header: AppHeader): Promise<void> {
   await expect(header.signIn).toBeVisible();
   await expect(header.signUp).toBeVisible();
   await expect(header.signOut).toBeHidden();
+  await expect(header.role).toBeHidden();
+}
+
+async function expectSignedIn(header: AppHeader): Promise<void> {
+  await expect(header.role).toHaveText('Role: MANAGER');
+  await expect(header.signOut).toBeVisible();
 }
 
 test.describe('Session', () => {
@@ -33,22 +40,23 @@ test.describe('Session', () => {
     expect(await readSession(page)).toBeNull();
   });
 
-  test('survives a reload and is shared by a new tab', async ({ page, context, api }) => {
+  test('survives a reload and is shared by a new tab, with the role of the user', async ({ page, context, api }) => {
     await signIn(page, api);
+    await expectSignedIn(new AppHeader(page));
 
     await page.reload();
-    await expect(new AppHeader(page).signOut).toBeVisible();
+    await expectSignedIn(new AppHeader(page));
 
     const other = await context.newPage();
     await other.goto('/');
-    await expect(new AppHeader(other).signOut).toBeVisible();
+    await expectSignedIn(new AppHeader(other));
   });
 
   test('ends in every tab on a sign-out in one of them', async ({ page, context, api }) => {
     await signIn(page, api);
     const other = await context.newPage();
     await other.goto('/');
-    await expect(new AppHeader(other).signOut).toBeVisible();
+    await expectSignedIn(new AppHeader(other));
 
     await new AppHeader(other).signOut.click();
 
