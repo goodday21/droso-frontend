@@ -4,12 +4,23 @@ export interface Credentials {
   password: string;
 }
 
+export type Role = 'ADMIN' | 'MANAGER' | 'USER';
+
 /** A user as returned by the backend; neither the password nor its hash is ever returned. */
 export interface UserResponse {
   id: number;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'USER';
+  role: Role;
   createdAt: string;
+}
+
+/**
+ * Body of `GET /api/v1/auth/me`: the user as currently stored, so its role may differ from the
+ * claim `role` of the token, and the permissions of that role. The permissions are a hint for the
+ * interface only; the backend checks them on every request.
+ */
+export interface CurrentUser extends UserResponse {
+  permissions: string[];
 }
 
 /** Body of a successful (HTTP 200) login. */

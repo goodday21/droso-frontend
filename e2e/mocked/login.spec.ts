@@ -1,7 +1,7 @@
 import { AppHeader } from '../pages/app-header';
 import { LoginPage } from '../pages/login-page';
 import { expect, test } from '../support/fixtures';
-import { ACCESS_TOKEN, apiError, loggedIn } from '../support/responses';
+import { ACCESS_TOKEN, apiError, currentUser, loggedIn } from '../support/responses';
 import { readSession } from '../support/session';
 
 const EMAIL = 'qwe@gmail.com';
@@ -20,7 +20,7 @@ test.describe('Sign-in page', () => {
 
     await expect(login.fieldErrors('email')).toHaveText(['is required']);
     await expect(login.fieldErrors('password')).toHaveText(['is required']);
-    expect(api.requests('login')).toEqual([]);
+    expect(api.requests('POST /auth/login')).toEqual([]);
   });
 
   test('limits the length of both fields and sends nothing', async ({ api }) => {
@@ -29,11 +29,12 @@ test.describe('Sign-in page', () => {
 
     await expect(login.fieldErrors('email')).toHaveText(['must be at most 254 characters']);
     await expect(login.fieldErrors('password')).toHaveText(['must be at most 64 characters']);
-    expect(api.requests('login')).toEqual([]);
+    expect(api.requests('POST /auth/login')).toEqual([]);
   });
 
   test('keeps the token and opens the root page', async ({ page, api }) => {
-    api.respond('login', loggedIn(1800));
+    api.respond('POST /auth/login', loggedIn(1800));
+    api.respond('GET /auth/me', currentUser());
 
     await login.fill(EMAIL, PASSWORD);
     const sentAfter = Date.now();
@@ -41,7 +42,7 @@ test.describe('Sign-in page', () => {
 
     await expect(page).toHaveURL('/');
     await expect(new AppHeader(page).signOut).toBeVisible();
-    expect(api.requests('login')).toEqual([{ email: EMAIL, password: PASSWORD }]);
+    expect(api.requests('POST /auth/login')).toEqual([{ email: EMAIL, password: PASSWORD }]);
 
     const session = await readSession(page);
     expect(session?.accessToken).toBe(ACCESS_TOKEN);
@@ -50,7 +51,7 @@ test.describe('Sign-in page', () => {
   });
 
   test('rejects wrong credentials and clears the password', async ({ page, api }) => {
-    api.respond('login', apiError(401, 'INVALID_CREDENTIALS'));
+    api.respond('POST /auth/login', apiError(401, 'INVALID_CREDENTIALS'));
 
     await login.fill(EMAIL, 'Wr0ng-Secret!');
     await login.submit.click();
@@ -65,7 +66,8 @@ test.describe('Sign-in page', () => {
   });
 
   test('sends one request while the first one is pending', async ({ page, api }) => {
-    const release = api.hold('login', loggedIn());
+    const release = api.hold('POST /auth/login', loggedIn());
+    api.respond('GET /auth/me', currentUser());
 
     await login.fill(EMAIL, PASSWORD);
     await login.submit.click();
@@ -76,6 +78,6 @@ test.describe('Sign-in page', () => {
     release();
 
     await expect(page).toHaveURL('/');
-    expect(api.requests('login')).toHaveLength(1);
+    expect(api.requests('POST /auth/login')).toHaveLength(1);
   });
 });
