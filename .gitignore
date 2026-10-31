@@ -4,3 +4,6 @@ dist/
 out-tsc/
 test-results/
 playwright-report/
+
+# Database connections of the IDE, local to each developer.
+.idea/dataSources.xml
