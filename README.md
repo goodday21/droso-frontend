@@ -1,7 +1,8 @@
 # droso-frontend
 
 Angular 22 application that shows the health of the service and of its PostgreSQL dependency, and
-lets a user sign up and sign in. The header of every page shows the role of the signed-in user.
+lets a user sign up and sign in. The header of every page shows the email and the role of the
+signed-in user.
 
 It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through
 `GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login` and
@@ -52,12 +53,14 @@ reliably — and is dropped after `expiresIn` seconds (30 minutes). There is no 
 `health`, `auth/register` and `auth/login`: the backend rejects an invalid token with 401 even on a
 public endpoint, so an old token must not reach the sign-in.
 
-The header shows *Role: USER*, *MANAGER* or *ADMIN* to a signed-in user, on every page.
-`CurrentUserService` reads it from `GET /api/v1/auth/me` once per token (at the start, on a
-sign-in, on a sign-in in another tab), not from the claim `role` of the token: the claim is the role
-at the login, while the backend applies a change of the role at once and lists the permissions as
-well. Until the answer comes, and when the call fails, the header shows no role. A 401 means that
-the backend no longer accepts the token (revoked, or the user deleted): the session is cleared.
+The header shows a signed-in user, on every page: the email on the left, *Role: USER*, *MANAGER* or
+*ADMIN* and *Sign out* on the right. A long email is cut with an ellipsis and never covers the right
+part; the full one is shown on hover (`title`). `CurrentUserService` reads both from
+`GET /api/v1/auth/me` once per token (at the start, on a sign-in, on a sign-in in another tab), not
+from the claim `role` of the token: the claim is the role at the login, while the backend applies a
+change of the role at once and lists the permissions as well. Until the answer comes, and when the
+call fails, the header shows neither the email nor the role. A 401 means that the backend no longer
+accepts the token (revoked, or the user deleted): the session is cleared.
 
 ## Errors of the API
 
@@ -120,12 +123,13 @@ currentUser())`. Only the health endpoint is UP by default; every other answer i
 and a call it did not mock fails it.
 
 They check only what needs a real browser: typing and clicks, navigation and titles, the session
-in `localStorage` across a reload and across tabs, a second click while a request is pending.
+in `localStorage` across a reload and across tabs, a second click while a request is pending, the
+layout of the header.
 What each answer of the API shows on a page — every error code, a stopped backend, no network —
 is checked by the unit and component tests. The skill `.claude/skills/test-pyramid` describes
 where each kind of test belongs.
 
-* `e2e/pages/` — page objects of the two forms and of the header (with the role);
+* `e2e/pages/` — page objects of the two forms and of the header (with the email and the role);
 * `e2e/support/responses.ts` — the answers of the backend, following its API contract;
 * `e2e/support/session.ts` — reading and seeding the session in `localStorage`.
 
@@ -210,8 +214,8 @@ The backend needs `DROSO_JWT_SECRET` (see its README). With both running, open
 3. Go back to `/register` and register the same email again: *is already registered* with a link to
    sign in.
 4. Sign in with a wrong password: *Invalid email or password*, the password field is emptied.
-5. Sign in with the right one: the health page opens and the header shows *Role: USER* and
-   *Sign out*.
+5. Sign in with the right one: the health page opens and the header shows the email on the left,
+   *Role: USER* and *Sign out* on the right.
 6. Stop the backend and sign in again: a message above the form, *not reachable* or *Something went
    wrong*, depending on whether the dev server proxy answers with an error of its own.
 

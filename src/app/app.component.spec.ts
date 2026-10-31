@@ -21,8 +21,16 @@ describe('AppComponent', () => {
 
   afterEach(() => localStorage.removeItem('droso.session'));
 
+  // The place of the email is always there, so that the other items stay on the right; it counts
+  // as an item only when it shows an email.
   function itemsOf(element: HTMLElement): string[] {
-    return Array.from(element.querySelectorAll('nav a, nav .role, nav button'), (item) => item.textContent!.trim());
+    return Array.from(element.querySelectorAll('nav .email, nav a, nav .role, nav button'), (item) =>
+      item.textContent!.trim(),
+    ).filter((text) => text !== '');
+  }
+
+  function emailOf(element: HTMLElement): HTMLElement {
+    return element.querySelector<HTMLElement>('nav .email')!;
   }
 
   function userWithRole(role: Role): CurrentUser {
@@ -33,7 +41,7 @@ describe('AppComponent', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
 
-    expect(itemsOf(fixture.nativeElement)).toEqual(['Service health', 'Sign in', 'Sign up']);
+    expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
   });
 
   it('signs out with the button of the header', () => {
@@ -41,27 +49,43 @@ describe('AppComponent', () => {
     session.save('eyJ.x.y', 1800);
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
-    expect(itemsOf(fixture.nativeElement)).toEqual(['Service health', 'Sign out']);
+    expect(itemsOf(fixture.nativeElement)).toEqual(['Sign out']);
 
     (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('nav button')!.click();
     fixture.detectChanges();
 
     expect(session.isAuthenticated()).toBeFalse();
-    expect(itemsOf(fixture.nativeElement)).toEqual(['Service health', 'Sign in', 'Sign up']);
+    expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
   });
 
   for (const role of ['USER', 'MANAGER', 'ADMIN'] as const) {
-    it(`shows the role ${role} before the sign-out`, () => {
+    it(`shows the email, then the role ${role} before the sign-out`, () => {
       TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
       user.set(userWithRole(role));
       const fixture = TestBed.createComponent(AppComponent);
       fixture.detectChanges();
 
-      expect(itemsOf(fixture.nativeElement)).toEqual(['Service health', `Role: ${role}`, 'Sign out']);
+      expect(itemsOf(fixture.nativeElement)).toEqual(['qwe@gmail.com', `Role: ${role}`, 'Sign out']);
     });
   }
 
-  it('shows no role once the token has expired', () => {
+  it('gives the full email as the hint of the email', () => {
+    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
+    user.set(userWithRole('USER'));
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+
+    expect(emailOf(fixture.nativeElement).title).toBe('qwe@gmail.com');
+  });
+
+  it('gives no hint without a session', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+
+    expect(emailOf(fixture.nativeElement).hasAttribute('title')).toBeFalse();
+  });
+
+  it('shows neither the email nor the role once the token has expired', () => {
     const now = Date.now();
     TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
     user.set(userWithRole('ADMIN'));
@@ -69,6 +93,6 @@ describe('AppComponent', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
 
-    expect(itemsOf(fixture.nativeElement)).toEqual(['Service health', 'Sign in', 'Sign up']);
+    expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
   });
 });

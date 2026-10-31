@@ -20,7 +20,7 @@ async function createUser(request: APIRequestContext, email: string): Promise<vo
 }
 
 test.describe('Sign-up and sign-in against the backend', () => {
-  test('registers, then signs in with the stored email and shows the role', async ({ page }) => {
+  test('registers, then signs in with the stored email and shows it with the role', async ({ page }) => {
     // The backend lowers the email: the sign-in page gets the stored one.
     const email = uniqueEmail();
     const register = new RegisterPage(page);
@@ -41,6 +41,7 @@ test.describe('Sign-up and sign-in against the backend', () => {
     await expect(new AppHeader(page).signOut).toBeVisible();
     // A registration always creates a USER; the header reads the role from `GET /auth/me`.
     await expect(new AppHeader(page).role).toHaveText('Role: USER');
+    await expect(new AppHeader(page).email).toHaveText(email);
     const session = await readSession(page);
     expect(session?.accessToken).toBeTruthy();
     expect(session?.expiresAt).toBeGreaterThan(Date.now());
