@@ -94,7 +94,8 @@ describe('CurrentUserService', () => {
     expect(service.user()).toBeNull();
   });
 
-  it('ends the session when the backend no longer accepts the token', () => {
+  // The interceptor has already tried a refresh; the session is its business, not of this service.
+  it('has no user but leaves the session alone when the backend rejects the token', () => {
     const service = start();
     signIn('eyJ.x.y');
 
@@ -106,7 +107,7 @@ describe('CurrentUserService', () => {
       );
     TestBed.tick();
 
-    expect(session.isAuthenticated()).toBeFalse();
+    expect(session.isAuthenticated()).toBeTrue();
     expect(service.user()).toBeNull();
   });
 

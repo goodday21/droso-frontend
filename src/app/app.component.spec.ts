@@ -1,21 +1,29 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { AppComponent } from './app.component';
 import { AuthSessionService } from './auth/auth-session.service';
 import { CurrentUser, Role } from './auth/auth.model';
 import { CurrentUserService } from './auth/current-user.service';
+import { RefreshTokenService } from './auth/refresh-token.service';
 
 describe('AppComponent', () => {
   // When `/me` is called and what its answers give is the business of `CurrentUserService`;
   // here only what the header shows for a given user.
   const user = signal<CurrentUser | null>(null);
+  let logout: jasmine.Spy;
 
   beforeEach(() => {
     localStorage.removeItem('droso.session');
     user.set(null);
+    // The sign-out itself (the session, the cookie, the lock) is the business of `RefreshTokenService`.
+    logout = jasmine.createSpy('logout').and.callFake(async () => TestBed.inject(AuthSessionService).clear());
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: CurrentUserService, useValue: { user } }],
+      providers: [
+        provideRouter([]),
+        { provide: CurrentUserService, useValue: { user } },
+        { provide: RefreshTokenService, useValue: { logout } },
+      ],
     });
   });
 
@@ -44,7 +52,8 @@ describe('AppComponent', () => {
     expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
   });
 
-  it('signs out with the button of the header', () => {
+  it('signs out with the button of the header and opens the sign-in', () => {
+    const navigateByUrl = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
     const session = TestBed.inject(AuthSessionService);
     session.save('eyJ.x.y', 1800);
     const fixture = TestBed.createComponent(AppComponent);
@@ -54,7 +63,8 @@ describe('AppComponent', () => {
     (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('nav button')!.click();
     fixture.detectChanges();
 
-    expect(session.isAuthenticated()).toBeFalse();
+    expect(logout).toHaveBeenCalledTimes(1);
+    expect(navigateByUrl).toHaveBeenCalledOnceWith('/login');
     expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
   });
 

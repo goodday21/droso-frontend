@@ -43,8 +43,19 @@ describe('LoginPageComponent', () => {
     return Array.from(items, (item) => item.textContent!.trim());
   }
 
-  it('shows no message of a registration when opened directly', () => {
+  it('shows no message of a registration or of an expired session when opened directly', () => {
     expect(element().textContent).not.toContain('Registration complete');
+    expect(element().textContent).not.toContain('session has expired');
+  });
+
+  it('tells that the session has expired when the backend ended it', async () => {
+    // Via another page: the router would reuse the page that is open and keep its snapshot.
+    await harness.navigateByUrl('/register');
+    await harness.navigateByUrl('/login?expired=1', LoginPageComponent);
+
+    expect(element().querySelector('[role="status"]')!.textContent!.trim()).toBe(
+      'Your session has expired. Please sign in again.',
+    );
   });
 
   it('keeps the token and opens the health page after a login', async () => {

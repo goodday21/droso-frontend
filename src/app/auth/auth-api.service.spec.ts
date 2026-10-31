@@ -103,4 +103,29 @@ describe('AuthApiService', () => {
 
     expect(result).toEqual({ ok: true, body: user });
   });
+
+  it('refreshes with POST /api/v1/auth/refresh, without a body', () => {
+    const token: LoginResponse = { accessToken: 'eyJ.new', tokenType: 'Bearer', expiresIn: 900 };
+    let result: ApiResult<LoginResponse> | undefined;
+    service.refresh().subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne('/api/v1/auth/refresh');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeNull();
+    request.flush(token);
+
+    expect(result).toEqual({ ok: true, body: token });
+  });
+
+  it('logs out with POST /api/v1/auth/logout, without a body', () => {
+    let result: ApiResult<null> | undefined;
+    service.logout().subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne('/api/v1/auth/logout');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeNull();
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(result).toEqual({ ok: true, body: null });
+  });
 });

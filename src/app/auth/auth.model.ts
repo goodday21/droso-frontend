@@ -23,11 +23,14 @@ export interface CurrentUser extends UserResponse {
   permissions: string[];
 }
 
-/** Body of a successful (HTTP 200) login. */
+/**
+ * Body of a successful (HTTP 200) login or refresh. The refresh token comes as an `HttpOnly`
+ * cookie, never in the body.
+ */
 export interface LoginResponse {
   accessToken: string;
   tokenType: 'Bearer';
-  /** Lifetime of the token in seconds; there is no refresh token, the user logs in again. */
+  /** Lifetime of the access token in seconds (15 minutes). */
   expiresIn: number;
 }
 

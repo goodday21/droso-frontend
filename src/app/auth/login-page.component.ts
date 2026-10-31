@@ -7,7 +7,8 @@ import { EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH } from './auth.model';
 import { fieldMessages, showFailure } from './form-errors';
 
 /**
- * Signs a user in, keeps the access token and sends them to the root page.
+ * Signs a user in, keeps the access token and sends them to the root page. The refresh token comes
+ * with the answer as an `HttpOnly` cookie, which the browser keeps by itself.
  *
  * After a registration the page is opened with `?registered=1` and the email in the navigation
  * state. The email is not put into the URL; the browser keeps the state in the history of the tab,
@@ -25,6 +26,9 @@ import { fieldMessages, showFailure } from './form-errors';
       <form [formGroup]="form" (ngSubmit)="submit()">
         @if (registered) {
           <p class="alert alert--success" role="status">Registration complete. Please sign in.</p>
+        }
+        @if (expired) {
+          <p class="alert alert--error" role="status">Your session has expired. Please sign in again.</p>
         }
         @if (formError(); as message) {
           <p class="alert alert--error" role="alert">{{ message }}</p>
@@ -71,7 +75,10 @@ export class LoginPageComponent {
   private readonly session = inject(AuthSessionService);
   private readonly router = inject(Router);
 
-  readonly registered = inject(ActivatedRoute).snapshot.queryParamMap.has('registered');
+  private readonly query = inject(ActivatedRoute).snapshot.queryParamMap;
+  readonly registered = this.query.has('registered');
+  /** Opened with `?expired=1` when the backend no longer accepts the session (`authInterceptor`). */
+  readonly expired = this.query.has('expired');
 
   readonly form = inject(NonNullableFormBuilder).group({
     email: ['', [Validators.required, Validators.maxLength(EMAIL_MAX_LENGTH)]],

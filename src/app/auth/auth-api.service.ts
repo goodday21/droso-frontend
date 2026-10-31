@@ -7,6 +7,8 @@ import { Credentials, CurrentUser, LoginResponse, UserResponse } from './auth.mo
 export const REGISTER_ENDPOINT = '/api/v1/auth/register';
 export const LOGIN_ENDPOINT = '/api/v1/auth/login';
 export const ME_ENDPOINT = '/api/v1/auth/me';
+export const REFRESH_ENDPOINT = '/api/v1/auth/refresh';
+export const LOGOUT_ENDPOINT = '/api/v1/auth/logout';
 
 /**
  * Client of the authentication endpoints.
@@ -24,6 +26,22 @@ export class AuthApiService {
 
   login(credentials: Credentials): Observable<ApiResult<LoginResponse>> {
     return this.post<LoginResponse>(LOGIN_ENDPOINT, credentials);
+  }
+
+  /**
+   * A new access token for the refresh cookie, which the backend replaces with a new one.
+   *
+   * There is no body and no token: the browser sends the cookie (`HttpOnly`, never seen by the
+   * application) and `Origin` itself. Call it through `RefreshTokenService` only: the same cookie
+   * sent twice ends the login.
+   */
+  refresh(): Observable<ApiResult<LoginResponse>> {
+    return toResult(this.http.post<LoginResponse>(REFRESH_ENDPOINT, null));
+  }
+
+  /** Revokes the refresh cookie of this login; the backend answers 204 even without one. */
+  logout(): Observable<ApiResult<null>> {
+    return toResult(this.http.post<null>(LOGOUT_ENDPOINT, null));
   }
 
   /** The signed-in user; the token is added by `authInterceptor`. */

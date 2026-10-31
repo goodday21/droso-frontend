@@ -87,4 +87,50 @@ describe('AuthSessionService', () => {
 
     expect(TestBed.inject(AuthSessionService).accessToken()).toBeNull();
   });
+
+  it('tells when another tab ends the session, and only then', () => {
+    const session = TestBed.inject(AuthSessionService);
+    const other = anotherTab();
+    let ended = 0;
+    session.endedElsewhere.subscribe(() => ended++);
+
+    other.save('eyJ.x.y', 1800);
+    window.dispatchEvent(new StorageEvent('storage', { key }));
+    expect(ended).withContext('a sign-in').toBe(0);
+
+    other.clear();
+    window.dispatchEvent(new StorageEvent('storage', { key }));
+    expect(ended).withContext('a sign-out').toBe(1);
+
+    window.dispatchEvent(new StorageEvent('storage', { key }));
+    expect(ended).withContext('no session to end').toBe(1);
+  });
+
+  it('reads the latest session of another tab before its event comes', () => {
+    const session = TestBed.inject(AuthSessionService);
+    anotherTab().save('eyJ.new', 900);
+
+    expect(session.reload()?.accessToken).toBe('eyJ.new');
+    expect(session.accessToken()).toBe('eyJ.new');
+  });
+
+  it('keeps an expired token as the stored session', () => {
+    const now = Date.now();
+    const session = TestBed.inject(AuthSessionService);
+    session.save('eyJ.x.y', 900);
+    spyOn(Date, 'now').and.returnValue(now + 901 * 1000);
+
+    expect(session.accessToken()).toBeNull();
+    expect(session.stored()?.accessToken).toBe('eyJ.x.y');
+  });
+
+  it('keeps the session in memory when the storage is unavailable', () => {
+    const session = TestBed.inject(AuthSessionService);
+    spyOn(localStorage, 'getItem').and.throwError('SecurityError');
+    spyOn(localStorage, 'setItem').and.throwError('SecurityError');
+    session.save('eyJ.x.y', 900);
+
+    expect(session.reload()?.accessToken).toBe('eyJ.x.y');
+    expect(session.accessToken()).toBe('eyJ.x.y');
+  });
 });
