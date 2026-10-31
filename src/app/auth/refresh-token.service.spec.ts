@@ -186,4 +186,25 @@ describe('RefreshTokenService', () => {
     (await expectRefresh()).flush({ accessToken: 'newer', tokenType: 'Bearer', expiresIn: 900 });
     expect(await second).toEqual({ kind: 'refreshed', accessToken: 'newer' });
   });
+
+  it('forgets the session once every session has ended on the backend', async () => {
+    session.save('old', 900);
+    const done = service.logoutAll();
+
+    httpMock.expectOne('/api/v1/auth/logout-all').flush(null, { status: 204, statusText: 'No Content' });
+
+    expect((await done).ok).toBeTrue();
+    expect(session.stored()).toBeNull();
+    expect(locked).withContext('a 401 would wait for a refresh under the lock').toBe(0);
+  });
+
+  it('keeps the session when the sessions could not be ended', async () => {
+    session.save('old', 900);
+    const done = service.logoutAll();
+
+    httpMock.expectOne('/api/v1/auth/logout-all').flush('<html>', { status: 502, statusText: 'Bad Gateway' });
+
+    expect(await done).toEqual({ ok: false, failure: { kind: 'unexpected', status: 502 } });
+    expect(session.stored()?.accessToken).toBe('old');
+  });
 });

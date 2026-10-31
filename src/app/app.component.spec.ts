@@ -20,7 +20,10 @@ describe('AppComponent', () => {
     logout = jasmine.createSpy('logout').and.callFake(async () => TestBed.inject(AuthSessionService).clear());
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([]),
+        provideRouter([
+          { path: '', children: [] },
+          { path: 'own', children: [], data: { ownHeader: true } },
+        ]),
         { provide: CurrentUserService, useValue: { user } },
         { provide: RefreshTokenService, useValue: { logout } },
       ],
@@ -75,17 +78,20 @@ describe('AppComponent', () => {
       const fixture = TestBed.createComponent(AppComponent);
       fixture.detectChanges();
 
-      expect(itemsOf(fixture.nativeElement)).toEqual(['qwe@gmail.com', `Role: ${role}`, 'Sign out']);
+      expect(itemsOf(fixture.nativeElement)).toEqual(['User profile (qwe@gmail.com)', `Role: ${role}`, 'Sign out']);
     });
   }
 
-  it('gives the full email as the hint of the email', () => {
+  it('links the email to the profile, with the full text as its hint', () => {
     TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
     user.set(userWithRole('USER'));
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
 
-    expect(emailOf(fixture.nativeElement).title).toBe('qwe@gmail.com');
+    const link = emailOf(fixture.nativeElement);
+    expect(link.tagName).toBe('A');
+    expect(link.getAttribute('href')).toBe('/user-profile');
+    expect(link.title).toBe('User profile (qwe@gmail.com)');
   });
 
   it('gives no hint without a session', () => {
@@ -104,5 +110,20 @@ describe('AppComponent', () => {
     fixture.detectChanges();
 
     expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
+  });
+
+  it('leaves the header to a page that has its own', async () => {
+    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
+    user.set(userWithRole('USER'));
+    const fixture = TestBed.createComponent(AppComponent);
+    const router = TestBed.inject(Router);
+
+    await router.navigateByUrl('/own');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('nav')).toBeNull();
+
+    await router.navigateByUrl('/');
+    fixture.detectChanges();
+    expect(itemsOf(fixture.nativeElement)).toEqual(['User profile (qwe@gmail.com)', 'Role: USER', 'Sign out']);
   });
 });

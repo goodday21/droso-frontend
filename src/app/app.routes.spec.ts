@@ -1,13 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { LoginPageComponent } from './auth/login-page.component';
 import { RegisterPageComponent } from './auth/register-page.component';
 import { HealthPageComponent } from './health/health-page.component';
 import { NotFoundComponent } from './not-found/not-found.component';
+import { AuthSessionService } from './auth/auth-session.service';
+import { UserProfilePageComponent } from './profile/user-profile-page.component';
 
 describe('routes', () => {
   beforeEach(() => {
@@ -28,6 +30,19 @@ describe('routes', () => {
 
     expect(await harness.navigateByUrl('/login', LoginPageComponent)).toBeInstanceOf(LoginPageComponent);
     expect(await harness.navigateByUrl('/register', RegisterPageComponent)).toBeInstanceOf(RegisterPageComponent);
+  });
+
+  it('shows the profile to a signed-in user only, and sends a guest to the sign-in', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/user-profile');
+    expect(TestBed.inject(Router).url).toBe('/login');
+
+    TestBed.inject(AuthSessionService).save('eyJ.x.y', 900);
+    expect(await harness.navigateByUrl('/user-profile', UserProfilePageComponent)).toBeInstanceOf(
+      UserProfilePageComponent,
+    );
+    TestBed.inject(AuthSessionService).clear();
   });
 
   it('shows "Page not found" for any other path', async () => {

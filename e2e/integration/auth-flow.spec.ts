@@ -2,6 +2,7 @@ import { APIRequestContext, Page, expect, test } from '@playwright/test';
 import { AppHeader } from '../pages/app-header';
 import { LoginPage } from '../pages/login-page';
 import { RegisterPage } from '../pages/register-page';
+import { UserProfilePage } from '../pages/user-profile-page';
 import { SESSION_KEY, readSession } from '../support/session';
 
 // `test` of Playwright itself, not of `support/fixtures`: these tests talk to the real backend.
@@ -41,7 +42,7 @@ test.describe('Sign-up and sign-in against the backend', () => {
     await expect(new AppHeader(page).signOut).toBeVisible();
     // A registration always creates a USER; the header reads the role from `GET /auth/me`.
     await expect(new AppHeader(page).role).toHaveText('Role: USER');
-    await expect(new AppHeader(page).email).toHaveText(email);
+    await expect(new AppHeader(page).email).toHaveText(`User profile (${email})`);
     const session = await readSession(page);
     expect(session?.accessToken).toBeTruthy();
     expect(session?.expiresAt).toBeGreaterThan(Date.now());
@@ -94,7 +95,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     await login.open();
     await login.fill(email, PASSWORD);
     await login.submit.click();
-    await expect(new AppHeader(page).email).toHaveText(email);
+    await expect(new AppHeader(page).email).toHaveText(`User profile (${email})`);
     return email;
   }
 
@@ -124,7 +125,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     );
     await page.reload();
 
-    await expect(new AppHeader(page).email).toHaveText(email);
+    await expect(new AppHeader(page).email).toHaveText(`User profile (${email})`);
     const after = await readSession(page);
     expect(after?.accessToken).not.toBe(before.accessToken);
     expect(after?.expiresAt).toBeGreaterThan(Date.now());
@@ -139,5 +140,28 @@ test.describe('Refresh token and sign-out against the backend', () => {
     await expect(new AppHeader(page).signIn).toBeVisible();
     await expect.poll(() => refreshStatus(page)).toBe(401);
   });
-});
 
+  test('shows the profile and logs out every session of the user', async ({ page, browser, request }) => {
+    const email = await signIn(page, request);
+    // A second browser of the same user: its refresh cookie is ended as well.
+    const otherContext = await browser.newContext();
+    const other = await otherContext.newPage();
+    const otherLogin = new LoginPage(other);
+    await otherLogin.open();
+    await otherLogin.fill(email, PASSWORD);
+    await otherLogin.submit.click();
+    await expect(new AppHeader(other).signOut).toBeVisible();
+
+    await new AppHeader(page).email.click();
+    const profile = new UserProfilePage(page);
+    await expect(profile.value('Email:')).toHaveText(email);
+    await expect(profile.value('Role:')).toHaveText('USER');
+    await profile.logoutAll.click();
+    await profile.confirm.click();
+
+    await expect(page).toHaveURL('/login');
+    expect(await refreshStatus(page)).toBe(401);
+    expect(await refreshStatus(other)).toBe(401);
+    await otherContext.close();
+  });
+});

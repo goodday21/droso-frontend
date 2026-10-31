@@ -121,4 +121,24 @@ describe('CurrentUserService', () => {
     expect(session.isAuthenticated()).toBeTrue();
     expect(service.user()).toBeNull();
   });
+
+  it('tells a pending call from a failed one', () => {
+    const service = start();
+    expect(service.state()).toEqual({ status: 'none' });
+
+    signIn('eyJ.x.y');
+    expect(service.state()).toEqual({ status: 'loading' });
+
+    httpMock.expectOne('/api/v1/auth/me').flush('<html>', { status: 502, statusText: 'Bad Gateway' });
+    expect(service.state()).toEqual({ status: 'failed' });
+  });
+
+  it('gives the user as the state of an answered call', () => {
+    const service = start();
+    signIn('eyJ.x.y');
+
+    httpMock.expectOne('/api/v1/auth/me').flush(user);
+
+    expect(service.state()).toEqual({ status: 'loaded', user });
+  });
 });

@@ -6,7 +6,8 @@ signed-in user.
 
 It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through
 `GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
-`POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout` and `GET /api/v1/auth/me`; the
+`POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `POST /api/v1/auth/logout-all` and
+`GET /api/v1/auth/me`; the
 [API contract](https://github.com/goodday21/droso-backend/blob/main/backend/README.md#api-contract)
 is described there, and `src/app/health/health.model.ts`, `src/app/auth/auth.model.ts` and
 `src/app/api/api-error.ts` follow it.
@@ -40,6 +41,7 @@ The dev server forwards every `/api` request to the backend on `http://localhost
 | `/`         | Service health; public, the health endpoint needs no token              |
 | `/register` | Sign up; on success it opens `/login?registered=1` with the email filled |
 | `/login`    | Sign in; on success it keeps the token and opens `/`; `?expired=1` tells that the session has expired |
+| `/user-profile` | The email and the role of the signed-in user, and *Logout all sessions*; signed-in users only (`authGuard`), anyone else is sent to `/login` |
 
 Any other path shows *Page not found*.
 
@@ -69,16 +71,26 @@ exists only in a secure context (`https://`, `localhost`); without it only one t
   refresh in the console). It replaces the token a minute before it expires, and when the tab
   becomes visible again with an expired token. When another tab ends the session, it opens `/login`.
 * *Sign out* in the header forgets the session at once, opens `/login` and revokes the cookie with
-  `POST /auth/logout` under the same lock. The other tabs open `/login` as well. *Sign out
-  everywhere* (`POST /auth/logout-all`) is not offered yet; it belongs on a page of the account.
+  `POST /auth/logout` under the same lock. The other tabs open `/login` as well.
+* *Logout all sessions* on `/user-profile` asks first in a dialog of the page, which closes on
+  *Cancel*, on Escape, on a click outside it, or once the backend has accepted *Yes*. Then
+  `POST /auth/logout-all` ends every login of the user on every device; the session is cleared and
+  every tab opens `/login`. When the call fails, the dialog shows the error and the session stays.
+* `authGuard` lets only a signed-in user (any role) into `/user-profile`; an expired token is
+  refreshed first, anyone else is sent to `/login`.
 
-The header shows a signed-in user, on every page: the email on the left, *Role: USER*, *MANAGER* or
-*ADMIN* and *Sign out* on the right. A long email is cut with an ellipsis and never covers the right
-part; the full one is shown on hover (`title`). `CurrentUserService` reads both from
-`GET /api/v1/auth/me` once per token (at the start, on a sign-in, on a sign-in in another tab), not
+The header shows a signed-in user, on every page but `/user-profile`: the link *User profile
+(email)* to `/user-profile` on the left, *Role: USER*, *MANAGER* or *ADMIN* and *Sign out* on the
+right. A long link is cut with an ellipsis and never covers the right part; the full text is shown
+on hover (`title`). `/user-profile` has a header of its own (`data.ownHeader` of its route): *Back*
+(to the previous page of the tab, or to `/` when opened directly), the title and *Sign out*.
+
+The email and the role, in the header and on `/user-profile`, come from `CurrentUserService`, which
+reads them from `GET /api/v1/auth/me` once per token (at the start, on a sign-in, on a sign-in in another tab), not
 from the claim `role` of the token: the claim is the role at the login, while the backend applies a
 change of the role at once and lists the permissions as well. Until the answer comes, and when the
-call fails, the header shows neither the email nor the role. A 401 is handled by `authInterceptor`
+call fails, the header shows neither the email nor the role; `/user-profile` shows *Loading…*, and
+*Could not load the profile.* on a failure. A 401 is handled by `authInterceptor`
 (see above).
 
 ## Errors of the API

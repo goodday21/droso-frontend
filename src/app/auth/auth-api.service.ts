@@ -9,6 +9,7 @@ export const LOGIN_ENDPOINT = '/api/v1/auth/login';
 export const ME_ENDPOINT = '/api/v1/auth/me';
 export const REFRESH_ENDPOINT = '/api/v1/auth/refresh';
 export const LOGOUT_ENDPOINT = '/api/v1/auth/logout';
+export const LOGOUT_ALL_ENDPOINT = '/api/v1/auth/logout-all';
 
 /**
  * Client of the authentication endpoints.
@@ -42,6 +43,14 @@ export class AuthApiService {
   /** Revokes the refresh cookie of this login; the backend answers 204 even without one. */
   logout(): Observable<ApiResult<null>> {
     return toResult(this.http.post<null>(LOGOUT_ENDPOINT, null));
+  }
+
+  /**
+   * Ends every login of the user on every device, this one included: every access and refresh
+   * token fails from the next request on. The token is added by `authInterceptor`.
+   */
+  logoutAll(): Observable<ApiResult<null>> {
+    return toResult(this.http.post<null>(LOGOUT_ALL_ENDPOINT, null));
   }
 
   /** The signed-in user; the token is added by `authInterceptor`. */

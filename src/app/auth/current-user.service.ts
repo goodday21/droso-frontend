@@ -5,6 +5,13 @@ import { AuthApiService } from './auth-api.service';
 import { AuthSessionService } from './auth-session.service';
 import { CurrentUser } from './auth.model';
 
+/** No session, the call pending, its answer, or a failed call. */
+export type CurrentUserState =
+  | { status: 'none' }
+  | { status: 'loading' }
+  | { status: 'loaded'; user: CurrentUser }
+  | { status: 'failed' };
+
 /**
  * The signed-in user, as `GET /api/v1/auth/me` returns it.
  *
@@ -24,17 +31,23 @@ export class CurrentUserService {
   // Only the changes of the token matter here; its expiry is checked by whoever shows the user.
   private readonly token = computed(() => this.session.accessToken());
 
-  readonly user = toSignal(
+  /** Where the call stands, for a page that tells a pending call from a failed one. */
+  readonly state = toSignal(
     toObservable(this.token).pipe(
-      switchMap((token) => (token === null ? of(null) : this.fetch())),
+      switchMap((token) => (token === null ? of<CurrentUserState>({ status: 'none' }) : this.fetch())),
     ),
-    { initialValue: null },
+    { initialValue: { status: 'none' } as CurrentUserState },
   );
+
+  readonly user = computed(() => {
+    const state = this.state();
+    return state.status === 'loaded' ? state.user : null;
+  });
 
   private fetch() {
     return this.api.me().pipe(
-      map((result): CurrentUser | null => (result.ok ? result.body : null)),
-      startWith(null),
+      map((result): CurrentUserState => (result.ok ? { status: 'loaded', user: result.body } : { status: 'failed' })),
+      startWith<CurrentUserState>({ status: 'loading' }),
     );
   }
 }
