@@ -94,8 +94,4 @@ test('links lead between the pages', async ({ page }) => {
 
   await header.signIn.click();
   await expect(page).toHaveURL('/login');
-
-  await header.serviceHealth.click();
-  await expect(page).toHaveURL('/');
-  await expect(page).toHaveTitle('Service health');
 });

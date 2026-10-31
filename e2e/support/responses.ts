@@ -15,7 +15,7 @@ export function loggedIn(expiresIn = 1800): MockResponse {
 }
 
 /** HTTP 200 of `GET /auth/me`, with the permissions that the backend gives to the role. */
-export function currentUser(role: 'USER' | 'MANAGER' | 'ADMIN' = 'USER'): MockResponse {
+export function currentUser(role: 'USER' | 'MANAGER' | 'ADMIN' = 'USER', email = 'qwe@gmail.com'): MockResponse {
   const permissions = {
     USER: ['DEFECT_READ', 'DEFECT_CREATE'],
     MANAGER: ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE'],
@@ -23,7 +23,7 @@ export function currentUser(role: 'USER' | 'MANAGER' | 'ADMIN' = 'USER'): MockRe
   }[role];
   return {
     status: 200,
-    json: { id: 1, email: 'qwe@gmail.com', role, permissions, createdAt: '2026-10-28T10:00:00.123456Z' },
+    json: { id: 1, email, role, permissions, createdAt: '2026-10-28T10:00:00.123456Z' },
   };
 }
 

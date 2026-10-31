@@ -10,8 +10,8 @@ import { CurrentUserService } from './auth/current-user.service';
   template: `
     <main class="page">
       <nav class="nav">
-        <a routerLink="/">Service health</a>
-        <span class="spacer"></span>
+        <!-- Takes the free width, so the items after it stay on the right even without an email. -->
+        <span class="email" [attr.title]="signedInUser()?.email">{{ signedInUser()?.email }}</span>
         @if (session.isAuthenticated()) {
           @if (currentUser.user(); as user) {
             <span class="role">Role: {{ user.role }}</span>
@@ -36,8 +36,15 @@ import { CurrentUserService } from './auth/current-user.service';
         align-items: center;
         gap: 1rem;
       }
-      .spacer {
-        flex: 1;
+      /*
+       * The email gets only the width left by the other items, which never shrink: a long one is
+       * cut with an ellipsis rather than pushing the role and Sign out aside.
+       */
+      .email {
+        flex: 1 1 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
       }
     `,
   ],
@@ -45,4 +52,9 @@ import { CurrentUserService } from './auth/current-user.service';
 export class AppComponent {
   protected readonly session = inject(AuthSessionService);
   protected readonly currentUser = inject(CurrentUserService);
+
+  /** The user shown in the header: none without a valid session, even if `/me` answered before. */
+  protected signedInUser() {
+    return this.session.isAuthenticated() ? this.currentUser.user() : null;
+  }
 }
