@@ -87,9 +87,10 @@ in `src/app/header/header-tabs.ts`, for now only *User Profile*; the tab of the 
 marked), and on the right the email, the role as *(USER)*, *(MANAGER)* or *(ADMIN)*, and *Sign
 out*. The email is plain text, cut to 20 characters with the domain kept whole
 (`qwe.very.…@gmail.com`; with a long domain, the middle of the whole email), and the full one is
-shown on hover (`title`). The email and the role have boxes of a fixed width, the email at the right
-edge of its box and the role at the left of its own, so that they read as one line and nothing
-moves while `/me` is pending. A guest gets *Sign in* and *Sign up* on the right. Below the header,
+shown on hover (`title`). *Sign out* stays at the right edge; the role, always whole, is as wide as
+its text and sits right before it; the email has a box of a fixed width (that of 20 × `m` in the
+font of the page) with the text at its right edge, right before the role, so that the two read as
+one line. A guest gets *Sign in* and *Sign up* on the right. Below the header,
 `/user-profile` has a bar of its own: *Back* (to the previous page of the tab, or to `/` when
 opened directly) and the title.
 

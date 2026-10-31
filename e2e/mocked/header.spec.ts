@@ -21,26 +21,33 @@ async function seedSignedIn(page: Page): Promise<void> {
   await seedSession(page, { accessToken: ACCESS_TOKEN, expiresAt: Date.now() + 1800_000 });
 }
 
-test('shows the email and the role as one line, in boxes that keep their places', async ({ page, api }) => {
+test('shows the email and the role as one line, the role as wide as its text, before Sign out', async ({
+  page,
+  api,
+}) => {
   await seedSignedIn(page);
   const release = api.hold('GET /auth/me', currentUser('USER', 'qwe@gmail.com'));
   const header = new AppHeader(page);
 
   await page.goto('/');
   await expect(header.signOut).toBeVisible();
-  const pending = { email: await header.email.boundingBox(), role: await header.role.boundingBox() };
+  const pending = { email: (await header.email.boundingBox())!, signOut: await header.signOut.boundingBox() };
   release();
   await expect(header.role).toHaveText('(USER)');
 
   const email = await boxAndText(header.email);
   const role = await boxAndText(header.role);
-  expect(await header.email.boundingBox(), 'the email box while /me was pending').toEqual(pending.email);
-  expect(await header.role.boundingBox(), 'the role box while /me was pending').toEqual(pending.role);
+  const signOut = (await header.signOut.boundingBox())!;
+  expect(signOut, 'Sign out stays where it was while /me was pending').toEqual(pending.signOut);
+  expect(email.box.width, 'the width of the email box').toBeCloseTo(pending.email.width, 0);
   expect(email.text.right).toBeCloseTo(email.box.right, 0);
   expect(role.text.left).toBeCloseTo(role.box.left, 0);
+  expect(role.text.right).toBeCloseTo(role.box.right, 0);
   // About one space between the end of the email and the start of the role.
   expect(role.text.left - email.text.right).toBeGreaterThan(0);
   expect(role.text.left - email.text.right).toBeLessThan(8);
+  // No empty place after the role: only the gap of the header (1rem) before Sign out.
+  expect(signOut.x - role.box.right).toBeCloseTo(16, 0);
 });
 
 test('keeps the tab, the email, the role and Sign out in a row within the page', async ({ page, api }) => {
@@ -52,6 +59,7 @@ test('keeps the tab, the email, the role and Sign out in a row within the page',
   await page.goto('/');
   await expect(header.role).toHaveText('(MANAGER)');
 
+  // The longest role, as the widest email: both are shown whole.
   for (const box of [header.email, header.role]) {
     const fits = await box.evaluate((element) => element.scrollWidth <= element.clientWidth);
     expect(fits, `the text of ${await box.evaluate((element) => element.tagName)} fits its box`).toBe(true);

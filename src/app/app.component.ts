@@ -11,9 +11,9 @@ import { HEADER_TABS } from './header/header-tabs';
  * The header of every page, then the page.
  *
  * A signed-in user gets the tabs of the pages ({@link HEADER_TABS}) on the left, and on the right
- * the email, the role and *Sign out*. The email and the role have boxes of a fixed width, so that
- * nothing moves while `/me` is pending; until it answers they are empty. A guest gets *Sign in* and
- * *Sign up* on the right.
+ * the email, the role and *Sign out*. *Sign out* stays at the right edge, the role right before it
+ * as wide as its text, and the email, in a box of a fixed width, right before the role; until `/me`
+ * answers the email and the role are empty. A guest gets *Sign in* and *Sign up* on the right.
  */
 @Component({
   selector: 'app-root',
