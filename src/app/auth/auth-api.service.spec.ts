@@ -128,4 +128,16 @@ describe('AuthApiService', () => {
 
     expect(result).toEqual({ ok: true, body: null });
   });
+
+  it('logs out everywhere with POST /api/v1/auth/logout-all, without a body', () => {
+    let result: ApiResult<null> | undefined;
+    service.logoutAll().subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne('/api/v1/auth/logout-all');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeNull();
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(result).toEqual({ ok: true, body: null });
+  });
 });

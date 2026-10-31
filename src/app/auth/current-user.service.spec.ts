@@ -121,4 +121,58 @@ describe('CurrentUserService', () => {
     expect(session.isAuthenticated()).toBeTrue();
     expect(service.user()).toBeNull();
   });
+
+  it('tells a pending call from a failed one', () => {
+    const service = start();
+    expect(service.state()).toEqual({ status: 'none' });
+
+    signIn('eyJ.x.y');
+    expect(service.state()).toEqual({ status: 'loading' });
+
+    httpMock.expectOne('/api/v1/auth/me').flush('<html>', { status: 502, statusText: 'Bad Gateway' });
+    expect(service.state()).toEqual({ status: 'failed' });
+  });
+
+  it('gives the user as the state of an answered call', () => {
+    const service = start();
+    signIn('eyJ.x.y');
+
+    httpMock.expectOne('/api/v1/auth/me').flush(user);
+
+    expect(service.state()).toEqual({ status: 'loaded', user });
+  });
+
+  describe('revalidate', () => {
+    it('asks again for the same token, keeping the user shown meanwhile', async () => {
+      const service = start();
+      signIn('eyJ.x.y');
+      httpMock.expectOne('/api/v1/auth/me').flush(user);
+
+      const result = service.revalidate();
+
+      expect(service.state()).withContext('while the check is pending').toEqual({ status: 'loaded', user });
+      httpMock.expectOne('/api/v1/auth/me').flush({ ...user, role: 'USER' });
+      expect(await result).toEqual({ status: 'loaded', user: { ...user, role: 'USER' } });
+      expect(service.user()?.role).toBe('USER');
+    });
+
+    it('keeps the user shown when the check gets no answer', async () => {
+      const service = start();
+      signIn('eyJ.x.y');
+      httpMock.expectOne('/api/v1/auth/me').flush(user);
+
+      const result = service.revalidate();
+      httpMock.expectOne('/api/v1/auth/me').flush('<html>', { status: 502, statusText: 'Bad Gateway' });
+
+      expect(await result).toEqual({ status: 'failed' });
+      expect(service.user()).toEqual(user);
+    });
+
+    it('asks nothing without a session', async () => {
+      const service = start();
+
+      expect(await service.revalidate()).toEqual({ status: 'none' });
+      httpMock.expectNone('/api/v1/auth/me');
+    });
+  });
 });

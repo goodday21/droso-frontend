@@ -28,7 +28,7 @@ import { fieldMessages, showFailure } from './form-errors';
           <p class="alert alert--success" role="status">Registration complete. Please sign in.</p>
         }
         @if (expired) {
-          <p class="alert alert--error" role="status">Your session has expired. Please sign in again.</p>
+          <p class="alert alert--error" role="status">Your session has ended. Please sign in again.</p>
         }
         @if (formError(); as message) {
           <p class="alert alert--error" role="alert">{{ message }}</p>

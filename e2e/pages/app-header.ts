@@ -1,8 +1,8 @@
 import { Locator, Page } from '@playwright/test';
 
 /**
- * The navigation at the top of every page; it shows the email, the role and *Sign out* only to a
- * signed-in user.
+ * The navigation at the top of every page but the profile; it shows the link to the profile with
+ * the email, the role and *Sign out* only to a signed-in user.
  */
 export class AppHeader {
   readonly email: Locator;

@@ -66,6 +66,22 @@ export class RefreshTokenService {
     await this.lock.run(() => firstValueFrom(this.api.logout()));
   }
 
+  /**
+   * Ends every session of the user on the backend, then forgets the one of this tab; on a failure
+   * the session is kept, as the other devices are still signed in.
+   *
+   * Not under the lock: the call carries the access token, and a 401 makes `authInterceptor` wait
+   * for a refresh, which takes the lock itself. The backend revokes the refresh tokens anyway, so a
+   * refresh of another tab meanwhile fails too.
+   */
+  async logoutAll(): Promise<ApiResult<null>> {
+    const result = await firstValueFrom(this.api.logoutAll());
+    if (result.ok) {
+      this.session.clear();
+    }
+    return result;
+  }
+
   private async refreshLocked(staleToken: string | null): Promise<RefreshOutcome> {
     if (
       staleToken !== null &&

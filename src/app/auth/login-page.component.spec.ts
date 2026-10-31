@@ -45,7 +45,7 @@ describe('LoginPageComponent', () => {
 
   it('shows no message of a registration or of an expired session when opened directly', () => {
     expect(element().textContent).not.toContain('Registration complete');
-    expect(element().textContent).not.toContain('session has expired');
+    expect(element().textContent).not.toContain('session has ended');
   });
 
   it('tells that the session has expired when the backend ended it', async () => {
@@ -54,7 +54,7 @@ describe('LoginPageComponent', () => {
     await harness.navigateByUrl('/login?expired=1', LoginPageComponent);
 
     expect(element().querySelector('[role="status"]')!.textContent!.trim()).toBe(
-      'Your session has expired. Please sign in again.',
+      'Your session has ended. Please sign in again.',
     );
   });
 

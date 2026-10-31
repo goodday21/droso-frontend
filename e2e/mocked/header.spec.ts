@@ -6,7 +6,7 @@ import { seedSession } from '../support/session';
 // The longest email that the backend accepts (254 characters).
 const LONG_EMAIL = `${'a'.repeat(244)}@gmail.com`;
 
-test('cuts a long email and keeps the role and Sign out beside it', async ({ page, api }) => {
+test('cuts a long link to the profile and keeps the role and Sign out beside it', async ({ page, api }) => {
   await seedSession(page, { accessToken: ACCESS_TOKEN, expiresAt: Date.now() + 1800_000 });
   api.respond('GET /auth/me', currentUser('MANAGER', LONG_EMAIL));
   const header = new AppHeader(page);
@@ -15,7 +15,7 @@ test('cuts a long email and keeps the role and Sign out beside it', async ({ pag
 
   await expect(header.role).toHaveText('Role: MANAGER');
   await expect(header.signOut).toBeVisible();
-  await expect(header.email).toHaveText(LONG_EMAIL);
+  await expect(header.email).toHaveText(`User profile (${LONG_EMAIL})`);
   // The box of the email ends before the role in any case; these keep its text inside the box.
   await expect(header.email).toHaveCSS('overflow-x', 'hidden');
   await expect(header.email).toHaveCSS('white-space', 'nowrap');
