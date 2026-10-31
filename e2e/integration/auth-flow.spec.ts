@@ -40,9 +40,10 @@ test.describe('Sign-up and sign-in against the backend', () => {
 
     await expect(page).toHaveURL('/');
     await expect(new AppHeader(page).signOut).toBeVisible();
-    // A registration always creates a USER; the header reads the role from `GET /auth/me`.
-    await expect(new AppHeader(page).role).toHaveText('Role: USER');
-    await expect(new AppHeader(page).email).toHaveText(`User profile (${email})`);
+    // A registration always creates a USER; the header reads the role from `GET /auth/me`. The
+    // generated email is longer than 20 characters: the header cuts it and keeps the whole as a hint.
+    await expect(new AppHeader(page).role).toHaveText('(USER)');
+    await expect(new AppHeader(page).email).toHaveAttribute('title', email);
     const session = await readSession(page);
     expect(session?.accessToken).toBeTruthy();
     expect(session?.expiresAt).toBeGreaterThan(Date.now());
@@ -95,7 +96,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     await login.open();
     await login.fill(email, PASSWORD);
     await login.submit.click();
-    await expect(new AppHeader(page).email).toHaveText(`User profile (${email})`);
+    await expect(new AppHeader(page).email).toHaveAttribute('title', email);
     return email;
   }
 
@@ -125,7 +126,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     );
     await page.reload();
 
-    await expect(new AppHeader(page).email).toHaveText(`User profile (${email})`);
+    await expect(new AppHeader(page).email).toHaveAttribute('title', email);
     const after = await readSession(page);
     expect(after?.accessToken).not.toBe(before.accessToken);
     expect(after?.expiresAt).toBeGreaterThan(Date.now());
@@ -152,7 +153,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     await otherLogin.submit.click();
     await expect(new AppHeader(other).signOut).toBeVisible();
 
-    await new AppHeader(page).email.click();
+    await new AppHeader(page).profileTab.click();
     const profile = new UserProfilePage(page);
     await expect(profile.value('Email:')).toHaveText(email);
     await expect(profile.value('Role:')).toHaveText('USER');

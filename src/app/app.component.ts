@@ -1,36 +1,50 @@
 import { Component, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { filter, map } from 'rxjs';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthSessionService } from './auth/auth-session.service';
 import { CurrentUserService } from './auth/current-user.service';
 import { RefreshTokenService } from './auth/refresh-token.service';
+import { HeaderEmailComponent } from './header/header-email.component';
+import { HeaderRoleComponent } from './header/header-role.component';
+import { HEADER_TABS } from './header/header-tabs';
 
+/**
+ * The header of every page, then the page.
+ *
+ * A signed-in user gets the tabs of the pages ({@link HEADER_TABS}) on the left, and on the right
+ * the email, the role and *Sign out*. *Sign out* stays at the right edge, the role right before it
+ * as wide as its text, and the email, in a box of a fixed width, right before the role; until `/me`
+ * answers the email and the role are empty. A guest gets *Sign in* and *Sign up* on the right.
+ */
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, HeaderEmailComponent, HeaderRoleComponent],
   template: `
     <main class="page">
-      @if (!ownHeader()) {
-        <nav class="nav">
-          <!-- Takes the free width, so the items after it stay on the right even without an email. -->
-          @if (signedInUser(); as user) {
-            <a class="email" routerLink="/user-profile" [title]="profileLabel(user.email)">{{ profileLabel(user.email) }}</a>
-          } @else {
-            <span class="email"></span>
-          }
+      <header class="header">
+        <nav class="tabs" aria-label="Pages">
           @if (session.isAuthenticated()) {
-            @if (currentUser.user(); as user) {
-              <span class="role">Role: {{ user.role }}</span>
+            @for (tab of tabs; track tab.path) {
+              <a class="tab" [routerLink]="tab.path" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+                tab.label
+              }}</a>
             }
+          }
+        </nav>
+        <div class="account">
+          @if (session.isAuthenticated()) {
+            @let user = currentUser.user();
+            <span class="user">
+              <app-header-email [email]="user?.email ?? null" />
+              <app-header-role [role]="user?.role ?? null" />
+            </span>
             <button type="button" (click)="signOut()">Sign out</button>
           } @else {
             <a routerLink="/login">Sign in</a>
             <a routerLink="/register">Sign up</a>
           }
-        </nav>
-      }
+        </div>
+      </header>
       <router-outlet />
     </main>
   `,
@@ -40,20 +54,44 @@ import { RefreshTokenService } from './auth/refresh-token.service';
         max-width: 40rem;
         margin: 0 auto;
       }
-      .nav {
+      /* The account stays on the right; on a narrow screen it wraps below the tabs. */
+      .header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem 1rem;
+      }
+      .tabs,
+      .account {
         display: flex;
         align-items: center;
+        gap: 0.5rem;
+      }
+      .account {
+        margin-left: auto;
         gap: 1rem;
       }
-      /*
-       * The email gets only the width left by the other items, which never shrink: a long one is
-       * cut with an ellipsis rather than pushing the role and Sign out aside.
-       */
-      .email {
-        flex: 1 1 0;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
+      /* One space between the email and the role, so that they read as one line. */
+      .user {
+        display: flex;
+        gap: 0.3em;
+      }
+      .tab {
+        padding: 0.5rem 1rem;
+        border: 1px solid #cbd2d9;
+        border-radius: 6px;
+        background: #fff;
+        color: inherit;
+        text-decoration: none;
+      }
+      .tab:hover {
+        background: #e4e7eb;
+      }
+      .tab.active {
+        border-color: #1f2933;
+        background: #1f2933;
+        color: #fff;
       }
     `,
   ],
@@ -64,38 +102,11 @@ export class AppComponent {
   private readonly refresher = inject(RefreshTokenService);
   private readonly router = inject(Router);
 
-  /** Whether the page that is open draws its own header instead of this one (`data.ownHeader`). */
-  protected readonly ownHeader = toSignal(
-    this.router.events.pipe(
-      filter((event) => event instanceof NavigationEnd),
-      map(() => hasOwnHeader(this.router.routerState.snapshot.root)),
-    ),
-    { initialValue: false },
-  );
-
-  protected profileLabel(email: string): string {
-    return `User profile (${email})`;
-  }
-
-  /** The user shown in the header: none without a valid session, even if `/me` answered before. */
-  protected signedInUser() {
-    return this.session.isAuthenticated() ? this.currentUser.user() : null;
-  }
+  protected readonly tabs = HEADER_TABS;
 
   /** The session is gone at once; the backend revokes the refresh cookie in the background. */
   protected signOut(): void {
     void this.refresher.logout();
     void this.router.navigateByUrl('/login');
   }
-}
-
-function hasOwnHeader(route: ActivatedRouteSnapshot): boolean {
-  let current: ActivatedRouteSnapshot | null = route;
-  while (current) {
-    if (current.data['ownHeader'] === true) {
-      return true;
-    }
-    current = current.firstChild;
-  }
-  return false;
 }

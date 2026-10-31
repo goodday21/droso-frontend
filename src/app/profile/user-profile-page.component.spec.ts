@@ -8,10 +8,9 @@ import { RefreshTokenService } from '../auth/refresh-token.service';
 import { UserProfilePageComponent } from './user-profile-page.component';
 
 describe('UserProfilePageComponent', () => {
-  // When `/me` is called is the business of `CurrentUserService`, and the calls of the sign-outs
+  // When `/me` is called is the business of `CurrentUserService`, and the call of the sign-out
   // that of `RefreshTokenService`; here only what the page shows and asks for.
   const state = signal<CurrentUserState>({ status: 'none' });
-  let logout: jasmine.Spy;
   let logoutAll: jasmine.Spy<() => Promise<ApiResult<null>>>;
   let fixture: ComponentFixture<UserProfilePageComponent>;
   let navigateByUrl: jasmine.Spy;
@@ -21,7 +20,6 @@ describe('UserProfilePageComponent', () => {
       status: 'loaded',
       user: { id: 1, email: 'qwe@gmail.com', role: 'MANAGER', permissions: [], createdAt: '2026-10-27T10:15:30Z' },
     });
-    logout = jasmine.createSpy('logout').and.resolveTo();
     logoutAll = jasmine.createSpy('logoutAll');
     TestBed.configureTestingModule({
       providers: [
@@ -30,7 +28,7 @@ describe('UserProfilePageComponent', () => {
           provide: CurrentUserService,
           useValue: { state, user: () => (state().status === 'loaded' ? (state() as { user: unknown }).user : null) },
         },
-        { provide: RefreshTokenService, useValue: { logout, logoutAll } },
+        { provide: RefreshTokenService, useValue: { logoutAll } },
       ],
     });
     navigateByUrl = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
@@ -71,14 +69,14 @@ describe('UserProfilePageComponent', () => {
     fixture.detectChanges();
   }
 
-  it('shows Back, its title and Sign out in its header', () => {
-    const header = element().querySelector('header')!;
+  // Sign out is in the header of the application (`AppComponent`), not on the page.
+  it('shows Back and its title in its bar, without a sign-out', () => {
+    const bar = element().querySelector('.bar')!;
 
-    expect(Array.from(header.children, (item) => item.textContent!.trim())).toEqual([
-      '← Back',
-      'User profile',
+    expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['← Back', 'User profile']);
+    expect(Array.from(element().querySelectorAll('button'), (item) => item.textContent!.trim())).not.toContain(
       'Sign out',
-    ]);
+    );
   });
 
   it('shows the email and the role of the user in a table', () => {
@@ -105,13 +103,6 @@ describe('UserProfilePageComponent', () => {
     expect(element().querySelector('table')).toBeNull();
     expect(element().querySelector('[role="alert"]')!.textContent!.trim()).toBe('Could not load the profile.');
     expect(button('Logout all sessions')).toBeTruthy();
-  });
-
-  it('signs out and opens the sign-in', () => {
-    click(button('Sign out'));
-
-    expect(logout).toHaveBeenCalledTimes(1);
-    expect(navigateByUrl).toHaveBeenCalledOnceWith('/login');
   });
 
   describe('Back', () => {
