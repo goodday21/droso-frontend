@@ -1,22 +1,32 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { AuthSessionService } from './auth-session.service';
+import { CurrentUserService, CurrentUserState } from './current-user.service';
 import { RefreshOutcome, RefreshTokenService } from './refresh-token.service';
-import { REFRESH_AHEAD_MS, START_REFRESH_TIMEOUT_MS, SessionKeeperService } from './session-keeper.service';
+import {
+  REFRESH_AHEAD_MS,
+  REVALIDATE_INTERVAL_MS,
+  START_REFRESH_TIMEOUT_MS,
+  SessionKeeperService,
+} from './session-keeper.service';
 
 describe('SessionKeeperService', () => {
   const key = 'droso.session';
   let session: AuthSessionService;
   let refresh: jasmine.Spy<(staleToken: string | null) => Promise<RefreshOutcome>>;
   let navigateByUrl: jasmine.Spy;
+  let revalidate: jasmine.Spy<() => Promise<CurrentUserState>>;
 
   beforeEach(() => {
     localStorage.removeItem(key);
     refresh = jasmine.createSpy('refresh');
     navigateByUrl = jasmine.createSpy('navigateByUrl').and.resolveTo(true);
+    revalidate = jasmine.createSpy('revalidate').and.resolveTo({ status: 'none' });
     TestBed.configureTestingModule({
       providers: [
         { provide: RefreshTokenService, useValue: { refresh } },
+        // What a check of the session does with a 401 is the business of `CurrentUserService`.
+        { provide: CurrentUserService, useValue: { revalidate } },
         { provide: Router, useValue: { navigateByUrl } },
       ],
     });
@@ -159,14 +169,65 @@ describe('SessionKeeperService', () => {
     expect(refresh).toHaveBeenCalledOnceWith('old');
   });
 
-  it('does not refresh a fresh token when the tab becomes visible', async () => {
-    session.save('old', 900);
-    await start();
+  describe('when the window gets the focus or the tab becomes visible', () => {
+    let visibility: jasmine.Spy;
 
-    spyOnProperty(document, 'visibilityState').and.returnValue('visible');
-    document.dispatchEvent(new Event('visibilitychange'));
+    beforeEach(() => {
+      visibility = spyOnProperty(document, 'visibilityState').and.returnValue('visible');
+    });
 
-    expect(refresh).not.toHaveBeenCalled();
+    it('asks the backend whether a fresh token is still valid, without refreshing it', async () => {
+      session.save('old', 900);
+      await start();
+
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      expect(revalidate).toHaveBeenCalledTimes(1);
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('asks on a focus of the window as well', async () => {
+      session.save('old', 900);
+      await start();
+
+      window.dispatchEvent(new Event('focus'));
+
+      expect(revalidate).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks once for the focus and the visibility of one switch, and again later', async () => {
+      const now = Date.now();
+      session.save('old', 900);
+      await start();
+      const clock = spyOn(Date, 'now').and.returnValue(now);
+
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      expect(revalidate).toHaveBeenCalledTimes(1);
+
+      clock.and.returnValue(now + REVALIDATE_INTERVAL_MS);
+      window.dispatchEvent(new Event('focus'));
+      expect(revalidate).toHaveBeenCalledTimes(2);
+    });
+
+    it('asks nothing for a guest', async () => {
+      refresh.and.resolveTo({ kind: 'ended' });
+      await start();
+
+      window.dispatchEvent(new Event('focus'));
+
+      expect(revalidate).not.toHaveBeenCalled();
+    });
+
+    it('asks nothing when the tab is hidden', async () => {
+      session.save('old', 900);
+      await start();
+      visibility.and.returnValue('hidden');
+
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      expect(revalidate).not.toHaveBeenCalled();
+    });
   });
 
   it('sends the tab to the sign-in when another tab ends the session', async () => {

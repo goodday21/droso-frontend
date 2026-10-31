@@ -40,7 +40,7 @@ The dev server forwards every `/api` request to the backend on `http://localhost
 |-------------|-------------------------------------------------------------------------|
 | `/`         | Service health; public, the health endpoint needs no token              |
 | `/register` | Sign up; on success it opens `/login?registered=1` with the email filled |
-| `/login`    | Sign in; on success it keeps the token and opens `/`; `?expired=1` tells that the session has expired |
+| `/login`    | Sign in; on success it keeps the token and opens `/`; `?expired=1` tells that the session has ended |
 | `/user-profile` | The email and the role of the signed-in user, and *Logout all sessions*; signed-in users only (`authGuard`), anyone else is sent to `/login` |
 
 Any other path shows *Page not found*.
@@ -69,15 +69,18 @@ exists only in a secure context (`https://`, `localhost`); without it only one t
   before the first page when there is no valid token: a user who comes back within a week is signed
   in without a password, and a guest just stays one (each start of a guest shows one 401 of the
   refresh in the console). It replaces the token a minute before it expires, and when the tab
-  becomes visible again with an expired token. When another tab ends the session, it opens `/login`.
+  becomes visible again with an expired token. When the window gets the focus or the tab becomes
+  visible with a valid token, it asks `GET /me` again (at most once in 2 seconds): *Logout all
+  sessions* in another browser ends the session on the backend, which tells no other browser, and
+  the 401 ends it here as well. When another tab ends the session, it opens `/login`.
 * *Sign out* in the header forgets the session at once, opens `/login` and revokes the cookie with
   `POST /auth/logout` under the same lock. The other tabs open `/login` as well.
 * *Logout all sessions* on `/user-profile` asks first in a dialog of the page, which closes on
   *Cancel*, on Escape, on a click outside it, or once the backend has accepted *Yes*. Then
   `POST /auth/logout-all` ends every login of the user on every device; the session is cleared and
   every tab opens `/login`. When the call fails, the dialog shows the error and the session stays.
-* `authGuard` lets only a signed-in user (any role) into `/user-profile`; an expired token is
-  refreshed first, anyone else is sent to `/login`.
+* `authGuard` lets only a signed-in user (any role) into `/user-profile`: a valid token is checked
+  with `GET /me` first, an expired one is refreshed; anyone else is sent to `/login`.
 
 The header shows a signed-in user, on every page but `/user-profile`: the link *User profile
 (email)* to `/user-profile` on the left, *Role: USER*, *MANAGER* or *ADMIN* and *Sign out* on the

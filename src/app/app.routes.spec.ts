@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
@@ -39,9 +39,12 @@ describe('routes', () => {
     expect(TestBed.inject(Router).url).toBe('/login');
 
     TestBed.inject(AuthSessionService).save('eyJ.x.y', 900);
-    expect(await harness.navigateByUrl('/user-profile', UserProfilePageComponent)).toBeInstanceOf(
-      UserProfilePageComponent,
-    );
+    const opening = harness.navigateByUrl('/user-profile', UserProfilePageComponent);
+    // The guard waits for the backend to confirm the session.
+    await new Promise((resolve) => setTimeout(resolve));
+    const calls = TestBed.inject(HttpTestingController).match('/api/v1/auth/me');
+    calls.at(-1)!.flush({ id: 1, email: 'qwe@gmail.com', role: 'USER', permissions: [], createdAt: '2026-10-27T10:15:30Z' });
+    expect(await opening).toBeInstanceOf(UserProfilePageComponent);
     TestBed.inject(AuthSessionService).clear();
   });
 

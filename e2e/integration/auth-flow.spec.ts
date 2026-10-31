@@ -141,7 +141,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     await expect.poll(() => refreshStatus(page)).toBe(401);
   });
 
-  test('shows the profile and logs out every session of the user', async ({ page, browser, request }) => {
+  test('shows the profile and logs out every session of the user, in every browser', async ({ page, browser, request }) => {
     const email = await signIn(page, request);
     // A second browser of the same user: its refresh cookie is ended as well.
     const otherContext = await browser.newContext();
@@ -161,6 +161,11 @@ test.describe('Refresh token and sign-out against the backend', () => {
 
     await expect(page).toHaveURL('/login');
     expect(await refreshStatus(page)).toBe(401);
+
+    // The other browser is not told; it asks the backend when its window gets the focus again.
+    await other.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(other).toHaveURL('/login?expired=1');
+    await expect(new LoginPage(other).expired).toBeVisible();
     expect(await refreshStatus(other)).toBe(401);
     await otherContext.close();
   });
