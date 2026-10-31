@@ -9,7 +9,8 @@ export type Endpoint = `${'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} /${string
 /** How a mocked endpoint answers. */
 export interface MockResponse {
   status: number;
-  json: unknown;
+  /** The body; none for a 204. */
+  json?: unknown;
 }
 
 interface Entry {
@@ -19,6 +20,12 @@ interface Entry {
 
 const API_PREFIX = '/api/v1';
 
+/** The answer to a refresh without a cookie, which the application asks at the start of a guest. */
+const REFRESH_REFUSED: MockResponse = {
+  status: 401,
+  json: { status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Invalid refresh token', fieldErrors: {} },
+};
+
 const HEALTH_UP: MockResponse = {
   status: 200,
   json: { status: 'UP', database: { status: 'UP', latencyMs: 1 }, timestamp: '2026-10-28T10:00:00Z' },
@@ -27,13 +34,17 @@ const HEALTH_UP: MockResponse = {
 /**
  * Answers the calls of the API in the browser, so that the tests need no backend.
  *
- * One route catches every call of the API. The health endpoint, called by the root page, is UP
- * unless the test sets it; every other endpoint answers what the test sets with {@link respond} or
- * {@link hold}. A call that the test did not expect is recorded and fails the test (see
+ * One route catches every call of the API. Two calls have a default, unless the test sets them:
+ * the health endpoint, called by the root page, is UP, and the refresh, called at the start without
+ * a valid token, is refused as for a guest without a cookie. Every other endpoint answers what the
+ * test sets with {@link respond} or {@link hold}. A call that the test did not expect is recorded and fails the test (see
  * `fixtures.ts`). Every body sent is kept for the assertions.
  */
 export class ApiMock {
-  private readonly responses = new Map<Endpoint, Entry>([['GET /health', { response: HEALTH_UP }]]);
+  private readonly responses = new Map<Endpoint, Entry>([
+    ['GET /health', { response: HEALTH_UP }],
+    ['POST /auth/refresh', { response: REFRESH_REFUSED }],
+  ]);
   private readonly bodies = new Map<Endpoint, unknown[]>();
   readonly unexpected: string[] = [];
 
@@ -82,7 +93,9 @@ export class ApiMock {
     this.bodies.set(endpoint, bodies);
     const { response, gate } = this.responses.get(endpoint)!;
     await gate;
-    await route.fulfill({ status: response.status, json: response.json });
+    await (response.json === undefined
+      ? route.fulfill({ status: response.status })
+      : route.fulfill({ status: response.status, json: response.json }));
   }
 }
 

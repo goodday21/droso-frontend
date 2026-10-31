@@ -3,6 +3,8 @@ import { MockResponse } from './api-mock';
 /** Answers of the backend, as described by its API contract (`droso-backend/backend/README.md`). */
 
 export const ACCESS_TOKEN = 'e2e-access-token';
+/** The token of a refresh; the backend never gives the same one twice. */
+export const REFRESHED_TOKEN = 'e2e-refreshed-token';
 
 /** HTTP 201 of the registration. */
 export function userCreated(email: string): MockResponse {
@@ -10,8 +12,18 @@ export function userCreated(email: string): MockResponse {
 }
 
 /** HTTP 200 of the login. */
-export function loggedIn(expiresIn = 1800): MockResponse {
+export function loggedIn(expiresIn = 900): MockResponse {
   return { status: 200, json: { accessToken: ACCESS_TOKEN, tokenType: 'Bearer', expiresIn } };
+}
+
+/** HTTP 200 of the refresh; the new refresh cookie is not mocked, the application never sees it. */
+export function refreshed(expiresIn = 900): MockResponse {
+  return { status: 200, json: { accessToken: REFRESHED_TOKEN, tokenType: 'Bearer', expiresIn } };
+}
+
+/** HTTP 204 of the logout. */
+export function loggedOut(): MockResponse {
+  return { status: 204 };
 }
 
 /** HTTP 200 of `GET /auth/me`, with the permissions that the backend gives to the role. */
@@ -33,6 +45,8 @@ const MESSAGES: Record<string, string> = {
   EMAIL_ALREADY_REGISTERED: 'Email is already registered',
   REGISTRATION_DISABLED: 'Registration is disabled',
   INTERNAL_ERROR: 'Internal server error',
+  UNAUTHORIZED: 'Unauthorized',
+  INVALID_REFRESH_TOKEN: 'Invalid refresh token',
 };
 
 /** An `ApiError`; several errors of one field are joined with `; `, as the backend does. */

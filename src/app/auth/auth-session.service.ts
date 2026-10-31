@@ -1,8 +1,9 @@
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
+import { Subject } from 'rxjs';
 
 const STORAGE_KEY = 'droso.session';
 
-interface StoredSession {
+export interface StoredSession {
   accessToken: string;
   /** Epoch milliseconds after which the token is no longer accepted. */
   expiresAt: number;
@@ -13,7 +14,8 @@ interface StoredSession {
  *
  * The token is kept in `localStorage`, so that every tab of the application shares one session
  * and a tab opened later is signed in as well. It is not cleared when the browser closes (no page
- * can tell that reliably); what limits it is its lifetime, `expiresIn` of the login.
+ * can tell that reliably); its lifetime is short (`expiresIn`, 15 minutes), and
+ * `RefreshTokenService` replaces it with a new one through the refresh cookie.
  *
  * A sign-in or a sign-out in one tab reaches the others through the `storage` event. The storage
  * may be unavailable (private mode, blocked site data), so every access is guarded and the session
@@ -21,13 +23,21 @@ interface StoredSession {
  */
 @Injectable({ providedIn: 'root' })
 export class AuthSessionService {
-  private readonly session = signal<StoredSession | null>(readStored());
+  private readonly session = signal<StoredSession | null>(readStored() ?? null);
+
+  /** Emits when another tab ends the session: a sign-out, or a refresh that the backend refused. */
+  readonly endedElsewhere = new Subject<void>();
 
   constructor() {
     // Fired only in the other tabs of the same origin; `key` is null when the storage is cleared.
     const onStorage = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY || event.key === null) {
-        this.session.set(readStored());
+        const before = this.session();
+        const after = readStored() ?? null;
+        this.session.set(after);
+        if (before !== null && after === null) {
+          this.endedElsewhere.next();
+        }
       }
     };
     window.addEventListener('storage', onStorage);
@@ -46,6 +56,30 @@ export class AuthSessionService {
 
   isAuthenticated(): boolean {
     return this.accessToken() !== null;
+  }
+
+  /** The session as kept, even with an expired token; `null` after a sign-out or without one. */
+  stored(): StoredSession | null {
+    return this.session();
+  }
+
+  /**
+   * Reads the session from the storage again and returns it.
+   *
+   * Another tab may have changed it a moment ago, before its `storage` event reached this tab:
+   * whoever is about to use the refresh cookie must see the latest token. Without a storage the
+   * session in memory is the only one.
+   */
+  reload(): StoredSession | null {
+    const stored = readStored();
+    if (stored === undefined) {
+      return this.session();
+    }
+    const current = this.session();
+    if (stored?.accessToken !== current?.accessToken || stored?.expiresAt !== current?.expiresAt) {
+      this.session.set(stored);
+    }
+    return stored;
   }
 
   save(accessToken: string, expiresInSeconds: number): void {
@@ -68,18 +102,24 @@ export class AuthSessionService {
   }
 }
 
-function readStored(): StoredSession | null {
+/** The stored session; `null` when there is none or it is corrupted, `undefined` without a storage. */
+function readStored(): StoredSession | null | undefined {
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return undefined;
+  }
+  if (!raw) {
+    return null;
+  }
+  try {
     const parsed = JSON.parse(raw) as Partial<StoredSession>;
     if (typeof parsed.accessToken === 'string' && typeof parsed.expiresAt === 'number') {
       return { accessToken: parsed.accessToken, expiresAt: parsed.expiresAt };
     }
   } catch {
-    // Unavailable storage or a corrupted value: start without a session.
+    // A corrupted value: no session.
   }
   return null;
 }

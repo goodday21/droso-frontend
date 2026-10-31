@@ -1,7 +1,8 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthSessionService } from './auth/auth-session.service';
 import { CurrentUserService } from './auth/current-user.service';
+import { RefreshTokenService } from './auth/refresh-token.service';
 
 @Component({
   selector: 'app-root',
@@ -16,7 +17,7 @@ import { CurrentUserService } from './auth/current-user.service';
           @if (currentUser.user(); as user) {
             <span class="role">Role: {{ user.role }}</span>
           }
-          <button type="button" (click)="session.clear()">Sign out</button>
+          <button type="button" (click)="signOut()">Sign out</button>
         } @else {
           <a routerLink="/login">Sign in</a>
           <a routerLink="/register">Sign up</a>
@@ -52,9 +53,17 @@ import { CurrentUserService } from './auth/current-user.service';
 export class AppComponent {
   protected readonly session = inject(AuthSessionService);
   protected readonly currentUser = inject(CurrentUserService);
+  private readonly refresher = inject(RefreshTokenService);
+  private readonly router = inject(Router);
 
   /** The user shown in the header: none without a valid session, even if `/me` answered before. */
   protected signedInUser() {
     return this.session.isAuthenticated() ? this.currentUser.user() : null;
+  }
+
+  /** The session is gone at once; the backend revokes the refresh cookie in the background. */
+  protected signOut(): void {
+    void this.refresher.logout();
+    void this.router.navigateByUrl('/login');
   }
 }

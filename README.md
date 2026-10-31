@@ -5,8 +5,8 @@ lets a user sign up and sign in. The header of every page shows the email and th
 signed-in user.
 
 It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through
-`GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login` and
-`GET /api/v1/auth/me`; the
+`GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
+`POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout` and `GET /api/v1/auth/me`; the
 [API contract](https://github.com/goodday21/droso-backend/blob/main/backend/README.md#api-contract)
 is described there, and `src/app/health/health.model.ts`, `src/app/auth/auth.model.ts` and
 `src/app/api/api-error.ts` follow it.
@@ -39,19 +39,38 @@ The dev server forwards every `/api` request to the backend on `http://localhost
 |-------------|-------------------------------------------------------------------------|
 | `/`         | Service health; public, the health endpoint needs no token              |
 | `/register` | Sign up; on success it opens `/login?registered=1` with the email filled |
-| `/login`    | Sign in; on success it keeps the token and opens `/`                    |
+| `/login`    | Sign in; on success it keeps the token and opens `/`; `?expired=1` tells that the session has expired |
 
 Any other path shows *Page not found*.
 
 The access token is kept in `localStorage` (`AuthSessionService`): every tab shares one session, a
 tab opened later is signed in as well, and a sign-in or a sign-out in one tab reaches the others at
-once (`storage` event). The token is not cleared when the browser closes — no page can tell that
-reliably — and is dropped after `expiresIn` seconds (30 minutes). There is no refresh token yet;
-*Sign out* in the header forgets it.
+once (`storage` event). The token lives 15 minutes (`expiresIn`); the refresh token comes with the
+login as an `HttpOnly` cookie (`droso_refresh`, `Path=/api/v1/auth`, 7 days from the last refresh),
+which no script reads: the browser sends it to `POST /auth/refresh` and `POST /auth/logout` by
+itself, same-origin through the dev server proxy.
 
-`authInterceptor` sends the token as `Authorization: Bearer …` to every call of the API except
-`health`, `auth/register` and `auth/login`: the backend rejects an invalid token with 401 even on a
-public endpoint, so an old token must not reach the sign-in.
+The backend replaces the cookie on every refresh and ends the whole login when an old one comes
+again, so a refresh is never sent twice at once: `RefreshTokenService` shares one refresh among
+the calls of a tab and takes the Web Lock `droso-auth-refresh` across the tabs; under the lock it
+first reads the storage again and reuses a token that another tab has just got. The Web Locks API
+exists only in a secure context (`https://`, `localhost`); without it only one tab at a time is safe.
+
+* `authInterceptor` sends the token as `Authorization: Bearer …` to every call of the API except
+  `health`, `auth/register`, `auth/login`, `auth/refresh` and `auth/logout`: the backend rejects an
+  invalid token with 401 even on a public endpoint. On a 401 `UNAUTHORIZED` it refreshes and sends
+  the call once more. When the backend refuses the refresh (`INVALID_REFRESH_TOKEN`, `FORBIDDEN`),
+  rejects the new token too, or rejects a token got less than 30 seconds ago, the session is
+  cleared and the page opens `/login?expired=1`. When the refresh gets no answer, the call fails
+  and the session is kept.
+* `SessionKeeperService`, started by the initializer of the application, refreshes silently
+  before the first page when there is no valid token: a user who comes back within a week is signed
+  in without a password, and a guest just stays one (each start of a guest shows one 401 of the
+  refresh in the console). It replaces the token a minute before it expires, and when the tab
+  becomes visible again with an expired token. When another tab ends the session, it opens `/login`.
+* *Sign out* in the header forgets the session at once, opens `/login` and revokes the cookie with
+  `POST /auth/logout` under the same lock. The other tabs open `/login` as well. *Sign out
+  everywhere* (`POST /auth/logout-all`) is not offered yet; it belongs on a page of the account.
 
 The header shows a signed-in user, on every page: the email on the left, *Role: USER*, *MANAGER* or
 *ADMIN* and *Sign out* on the right. A long email is cut with an ellipsis and never covers the right
@@ -59,8 +78,8 @@ part; the full one is shown on hover (`title`). `CurrentUserService` reads both 
 `GET /api/v1/auth/me` once per token (at the start, on a sign-in, on a sign-in in another tab), not
 from the claim `role` of the token: the claim is the role at the login, while the backend applies a
 change of the role at once and lists the permissions as well. Until the answer comes, and when the
-call fails, the header shows neither the email nor the role. A 401 means that the backend no longer
-accepts the token (revoked, or the user deleted): the session is cleared.
+call fails, the header shows neither the email nor the role. A 401 is handled by `authInterceptor`
+(see above).
 
 ## Errors of the API
 
@@ -119,7 +138,8 @@ npx playwright show-report        # the HTML report of the last run
 
 The tests of `e2e/mocked/` need no backend: `ApiMock` (`e2e/support/api-mock.ts`) answers every
 call of the API in the browser, keyed by the method and the path, e.g. `api.respond('GET /auth/me',
-currentUser())`. Only the health endpoint is UP by default; every other answer is set by the test,
+currentUser())`. Only two calls have a default: the health endpoint is UP, and the refresh answers
+401 `INVALID_REFRESH_TOKEN`, as for a guest without a cookie. Every other answer is set by the test,
 and a call it did not mock fails it.
 
 They check only what needs a real browser: typing and clicks, navigation and titles, the session
