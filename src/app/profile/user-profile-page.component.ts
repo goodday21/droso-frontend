@@ -17,9 +17,8 @@ import { RefreshTokenService } from '../auth/refresh-token.service';
 /**
  * The account of the signed-in user: the email and the role, and the sign-out of every session.
  *
- * The page has its own header (`data.ownHeader` of its route): Back, its title and Sign out, but
- * neither the email nor the role, which the page itself shows. Only a signed-in user opens it
- * (`authGuard`).
+ * Below the header of the application, with its tab, the page has a bar of its own: Back and its
+ * title. Only a signed-in user opens it (`authGuard`).
  *
  * *Logout all sessions* asks first, in a dialog of the page. The dialog closes on Cancel, on
  * Escape, on a click outside it, or once the backend has accepted Yes; while the call is pending
@@ -31,11 +30,10 @@ import { RefreshTokenService } from '../auth/refresh-token.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'cancelLogoutAll()' },
   template: `
-    <header class="bar">
+    <div class="bar">
       <button type="button" class="back" (click)="back()">← Back</button>
       <h1>User profile</h1>
-      <button type="button" class="sign-out" (click)="signOut()">Sign out</button>
-    </header>
+    </div>
 
     <section class="card">
       @switch (currentUser.state().status) {
@@ -87,11 +85,9 @@ import { RefreshTokenService } from '../auth/refresh-token.service';
         align-items: center;
         gap: 1rem;
       }
+      /* The third column stays empty, so that the title is in the middle of the page. */
       .back {
         justify-self: start;
-      }
-      .sign-out {
-        justify-self: end;
       }
       h1 {
         margin: 1rem 0;
@@ -193,11 +189,6 @@ export class UserProfilePageComponent {
     } else {
       void this.router.navigateByUrl('/');
     }
-  }
-
-  signOut(): void {
-    void this.refresher.logout();
-    void this.router.navigateByUrl('/login');
   }
 
   askLogoutAll(): void {

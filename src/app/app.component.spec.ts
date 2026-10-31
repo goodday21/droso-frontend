@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AppComponent } from './app.component';
 import { AuthSessionService } from './auth/auth-session.service';
@@ -8,8 +8,9 @@ import { CurrentUserService } from './auth/current-user.service';
 import { RefreshTokenService } from './auth/refresh-token.service';
 
 describe('AppComponent', () => {
-  // When `/me` is called and what its answers give is the business of `CurrentUserService`;
-  // here only what the header shows for a given user.
+  // When `/me` is called and what its answers give is the business of `CurrentUserService`; how the
+  // email is cut and the role written, that of the components of the header. Here only what the
+  // header holds, and in which order.
   const user = signal<CurrentUser | null>(null);
   let logout: jasmine.Spy;
 
@@ -22,7 +23,7 @@ describe('AppComponent', () => {
       providers: [
         provideRouter([
           { path: '', children: [] },
-          { path: 'own', children: [], data: { ownHeader: true } },
+          { path: 'user-profile', children: [] },
         ]),
         { provide: CurrentUserService, useValue: { user } },
         { provide: RefreshTokenService, useValue: { logout } },
@@ -32,98 +33,93 @@ describe('AppComponent', () => {
 
   afterEach(() => localStorage.removeItem('droso.session'));
 
-  // The place of the email is always there, so that the other items stay on the right; it counts
-  // as an item only when it shows an email.
-  function itemsOf(element: HTMLElement): string[] {
-    return Array.from(element.querySelectorAll('nav .email, nav a, nav .role, nav button'), (item) =>
+  function render(): ComponentFixture<AppComponent> {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  /** The texts of the header from left to right, without the empty boxes of the email and the role. */
+  function itemsOf(fixture: ComponentFixture<AppComponent>): string[] {
+    const header = (fixture.nativeElement as HTMLElement).querySelector('header')!;
+    return Array.from(header.querySelectorAll('a, app-header-email, app-header-role, button'), (item) =>
       item.textContent!.trim(),
     ).filter((text) => text !== '');
   }
 
-  function emailOf(element: HTMLElement): HTMLElement {
-    return element.querySelector<HTMLElement>('nav .email')!;
+  function tabOf(fixture: ComponentFixture<AppComponent>): HTMLAnchorElement {
+    return (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('nav a')!;
   }
 
   function userWithRole(role: Role): CurrentUser {
     return { id: 1, email: 'qwe@gmail.com', role, permissions: [], createdAt: '2026-10-27T10:15:30Z' };
   }
 
-  it('offers to sign in or to sign up without a session', () => {
-    const fixture = TestBed.createComponent(AppComponent);
+  it('offers to sign in or to sign up without a session, without tabs', () => {
+    const fixture = render();
+
+    expect(itemsOf(fixture)).toEqual(['Sign in', 'Sign up']);
+    expect(tabOf(fixture)).toBeNull();
+  });
+
+  for (const role of ['USER', 'MANAGER', 'ADMIN'] as const) {
+    it(`shows the tabs, then the email, the role ${role} and Sign out`, () => {
+      TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
+      user.set(userWithRole(role));
+
+      expect(itemsOf(render())).toEqual(['User Profile', 'qwe@gmail.com', `(${role})`, 'Sign out']);
+    });
+  }
+
+  it('keeps the places of the email and the role, empty, until the user is known', () => {
+    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
+    const fixture = render();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(itemsOf(fixture)).toEqual(['User Profile', 'Sign out']);
+    expect(element.querySelector('app-header-email')).not.toBeNull();
+    expect(element.querySelector('app-header-role')).not.toBeNull();
+  });
+
+  it('opens the profile with its tab, which is marked while the profile is open', async () => {
+    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
+    const router = TestBed.inject(Router);
+    const fixture = render();
+    await router.navigateByUrl('/');
+    fixture.detectChanges();
+    const tab = tabOf(fixture);
+    expect(tab.getAttribute('href')).toBe('/user-profile');
+    expect(tab.classList).not.toContain('active');
+    expect(tab.hasAttribute('aria-current')).toBeFalse();
+
+    tab.click();
+    await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
+    expect(router.url).toBe('/user-profile');
+    expect(tab.classList).toContain('active');
+    expect(tab.getAttribute('aria-current')).toBe('page');
   });
 
   it('signs out with the button of the header and opens the sign-in', () => {
     const navigateByUrl = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
-    const session = TestBed.inject(AuthSessionService);
-    session.save('eyJ.x.y', 1800);
-    const fixture = TestBed.createComponent(AppComponent);
-    fixture.detectChanges();
-    expect(itemsOf(fixture.nativeElement)).toEqual(['Sign out']);
+    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
+    const fixture = render();
 
-    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('nav button')!.click();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('header button')!.click();
     fixture.detectChanges();
 
     expect(logout).toHaveBeenCalledTimes(1);
     expect(navigateByUrl).toHaveBeenCalledOnceWith('/login');
-    expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
+    expect(itemsOf(fixture)).toEqual(['Sign in', 'Sign up']);
   });
 
-  for (const role of ['USER', 'MANAGER', 'ADMIN'] as const) {
-    it(`shows the email, then the role ${role} before the sign-out`, () => {
-      TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
-      user.set(userWithRole(role));
-      const fixture = TestBed.createComponent(AppComponent);
-      fixture.detectChanges();
-
-      expect(itemsOf(fixture.nativeElement)).toEqual(['User profile (qwe@gmail.com)', `Role: ${role}`, 'Sign out']);
-    });
-  }
-
-  it('links the email to the profile, with the full text as its hint', () => {
-    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
-    user.set(userWithRole('USER'));
-    const fixture = TestBed.createComponent(AppComponent);
-    fixture.detectChanges();
-
-    const link = emailOf(fixture.nativeElement);
-    expect(link.tagName).toBe('A');
-    expect(link.getAttribute('href')).toBe('/user-profile');
-    expect(link.title).toBe('User profile (qwe@gmail.com)');
-  });
-
-  it('gives no hint without a session', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    fixture.detectChanges();
-
-    expect(emailOf(fixture.nativeElement).hasAttribute('title')).toBeFalse();
-  });
-
-  it('shows neither the email nor the role once the token has expired', () => {
+  it('shows neither the tabs nor the user once the token has expired', () => {
     const now = Date.now();
     TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
     user.set(userWithRole('ADMIN'));
     spyOn(Date, 'now').and.returnValue(now + 1801 * 1000);
-    const fixture = TestBed.createComponent(AppComponent);
-    fixture.detectChanges();
 
-    expect(itemsOf(fixture.nativeElement)).toEqual(['Sign in', 'Sign up']);
-  });
-
-  it('leaves the header to a page that has its own', async () => {
-    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
-    user.set(userWithRole('USER'));
-    const fixture = TestBed.createComponent(AppComponent);
-    const router = TestBed.inject(Router);
-
-    await router.navigateByUrl('/own');
-    fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).querySelector('nav')).toBeNull();
-
-    await router.navigateByUrl('/');
-    fixture.detectChanges();
-    expect(itemsOf(fixture.nativeElement)).toEqual(['User profile (qwe@gmail.com)', 'Role: USER', 'Sign out']);
+    expect(itemsOf(render())).toEqual(['Sign in', 'Sign up']);
   });
 });

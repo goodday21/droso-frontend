@@ -5,8 +5,9 @@ import { ACCESS_TOKEN, currentUser, loggedOut } from '../support/responses';
 import { readSession, seedSession } from '../support/session';
 
 // What the page shows for each answer, and the dialog's ways out, are checked by the spec of the
-// page; that a guest is sent to the sign-in, by `app.routes.spec.ts`. Here the navigation, the
-// history of the tab, the place of the dialog on the screen and the tabs.
+// page; that a guest is sent to the sign-in, by `app.routes.spec.ts`; the mark of the open tab, by
+// `app.component.spec.ts`. Here the navigation, the history of the tab, the place of the dialog on
+// the screen and the tabs of the browser.
 
 test.describe('User profile', () => {
   test.beforeEach(async ({ page, api }) => {
@@ -14,21 +15,24 @@ test.describe('User profile', () => {
     api.respond('GET /auth/me', currentUser('MANAGER'));
   });
 
-  test('opens from the link of the header, without the header itself, and Back returns', async ({ page }) => {
+  test('opens from the tab of the header, below the header, and Back returns', async ({ page }) => {
     const profile = new UserProfilePage(page);
+    const header = new AppHeader(page);
     await page.goto('/');
 
-    await new AppHeader(page).email.click();
+    await header.profileTab.click();
 
     await expect(page).toHaveURL('/user-profile');
     await expect(page).toHaveTitle('User profile');
     await expect(profile.heading).toHaveText('User profile');
-    await expect(page.locator('nav')).toHaveCount(0);
+    await expect(header.role).toHaveText('(MANAGER)');
+    const bar = (await page.locator('header').boundingBox())!;
+    const back = (await profile.back.boundingBox())!;
+    expect(back.y, 'Back is below the header').toBeGreaterThanOrEqual(bar.y + bar.height);
 
     await profile.back.click();
 
     await expect(page).toHaveURL('/');
-    await expect(new AppHeader(page).role).toHaveText('Role: MANAGER');
   });
 
   test('Back opens the root when the page was opened directly', async ({ page }) => {
@@ -58,7 +62,7 @@ test.describe('User profile', () => {
     await profile.open();
     const other = await context.newPage();
     await other.goto('/');
-    await expect(new AppHeader(other).role).toHaveText('Role: MANAGER');
+    await expect(new AppHeader(other).role).toHaveText('(MANAGER)');
 
     await profile.logoutAll.click();
     await profile.confirm.click();

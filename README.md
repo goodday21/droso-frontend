@@ -82,11 +82,16 @@ exists only in a secure context (`https://`, `localhost`); without it only one t
 * `authGuard` lets only a signed-in user (any role) into `/user-profile`: a valid token is checked
   with `GET /me` first, an expired one is refreshed; anyone else is sent to `/login`.
 
-The header shows a signed-in user, on every page but `/user-profile`: the link *User profile
-(email)* to `/user-profile` on the left, *Role: USER*, *MANAGER* or *ADMIN* and *Sign out* on the
-right. A long link is cut with an ellipsis and never covers the right part; the full text is shown
-on hover (`title`). `/user-profile` has a header of its own (`data.ownHeader` of its route): *Back*
-(to the previous page of the tab, or to `/` when opened directly), the title and *Sign out*.
+The header of every page shows a signed-in user the tabs of the pages on the left (`HEADER_TABS`
+in `src/app/header/header-tabs.ts`, for now only *User Profile*; the tab of the open page is
+marked), and on the right the email, the role as *(USER)*, *(MANAGER)* or *(ADMIN)*, and *Sign
+out*. The email is plain text, cut to 20 characters with the domain kept whole
+(`qwe.very.…@gmail.com`; with a long domain, the middle of the whole email), and the full one is
+shown on hover (`title`). The email and the role have boxes of a fixed width, the email at the right
+edge of its box and the role at the left of its own, so that they read as one line and nothing
+moves while `/me` is pending. A guest gets *Sign in* and *Sign up* on the right. Below the header,
+`/user-profile` has a bar of its own: *Back* (to the previous page of the tab, or to `/` when
+opened directly) and the title.
 
 The email and the role, in the header and on `/user-profile`, come from `CurrentUserService`, which
 reads them from `GET /api/v1/auth/me` once per token (at the start, on a sign-in, on a sign-in in another tab), not
@@ -249,8 +254,8 @@ The backend needs `DROSO_JWT_SECRET` (see its README). With both running, open
 3. Go back to `/register` and register the same email again: *is already registered* with a link to
    sign in.
 4. Sign in with a wrong password: *Invalid email or password*, the password field is emptied.
-5. Sign in with the right one: the health page opens and the header shows the email on the left,
-   *Role: USER* and *Sign out* on the right.
+5. Sign in with the right one: the health page opens and the header shows the tab *User Profile* on the
+   left, the email, *(USER)* and *Sign out* on the right.
 6. Stop the backend and sign in again: a message above the form, *not reachable* or *Something went
    wrong*, depending on whether the dev server proxy answers with an error of its own.
 

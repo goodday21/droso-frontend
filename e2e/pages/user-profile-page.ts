@@ -1,10 +1,12 @@
 import { Locator, Page } from '@playwright/test';
 
-/** The page of the account, with a header of its own and the dialog of *Logout all sessions*. */
+/**
+ * The page of the account, below the header of the application: its bar with *Back* and the title,
+ * and the dialog of *Logout all sessions*.
+ */
 export class UserProfilePage {
   readonly heading: Locator;
   readonly back: Locator;
-  readonly signOut: Locator;
   readonly logoutAll: Locator;
   readonly dialog: Locator;
   readonly confirm: Locator;
@@ -12,9 +14,7 @@ export class UserProfilePage {
 
   constructor(readonly page: Page) {
     this.heading = page.getByRole('heading', { level: 1 });
-    const header = page.locator('header');
-    this.back = header.getByRole('button', { name: 'Back' });
-    this.signOut = header.getByRole('button', { name: 'Sign out' });
+    this.back = page.getByRole('button', { name: 'Back' });
     this.logoutAll = page.getByRole('button', { name: 'Logout all sessions' });
     this.dialog = page.getByRole('dialog');
     this.confirm = this.dialog.getByRole('button', { name: 'Yes' });

@@ -17,8 +17,6 @@ export const routes: Routes = [
     component: UserProfilePageComponent,
     canActivate: [authGuard],
     title: 'User profile',
-    // The page has a header of its own, without the email and the role (`AppComponent`).
-    data: { ownHeader: true },
   },
   { path: '**', component: NotFoundComponent, title: 'Page not found' },
 ];
