@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { provideTaiga } from '@taiga-ui/core';
 import { AppComponent } from './app.component';
 import { AuthSessionService } from './auth/auth-session.service';
 import { CurrentUser, Role } from './auth/auth.model';
@@ -28,6 +29,7 @@ describe('AppComponent', () => {
         ]),
         { provide: CurrentUserService, useValue: { user } },
         { provide: RefreshTokenService, useValue: { logout } },
+        provideTaiga(),
       ],
     });
   });
@@ -68,7 +70,7 @@ describe('AppComponent', () => {
       TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
       user.set(userWithRole(role));
 
-      expect(itemsOf(render())).toEqual(['User Profile', 'qwe@gmail.com', `(${role})`, 'Sign out']);
+      expect(itemsOf(render())).toEqual(['User Profile', 'qwe@gmail.com', role, 'Sign out']);
     });
   }
 
@@ -77,12 +79,12 @@ describe('AppComponent', () => {
     TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
     user.set(userWithRole('MANAGER', ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE']));
     const fixture = render();
-    expect(itemsOf(fixture)).toEqual(['User Profile', 'qwe@gmail.com', '(MANAGER)', 'Sign out']);
+    expect(itemsOf(fixture)).toEqual(['User Profile', 'qwe@gmail.com', 'MANAGER', 'Sign out']);
 
     user.set(userWithRole('ADMIN', ['DEFECT_READ', 'USER_MANAGE']));
     fixture.detectChanges();
 
-    expect(itemsOf(fixture)).toEqual(['Users', 'User Profile', 'qwe@gmail.com', '(ADMIN)', 'Sign out']);
+    expect(itemsOf(fixture)).toEqual(['Users', 'User Profile', 'qwe@gmail.com', 'ADMIN', 'Sign out']);
     expect(tabOf(fixture).getAttribute('href')).toBe('/users');
   });
 

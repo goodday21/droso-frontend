@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { provideTaiga } from '@taiga-ui/core';
 import { ApiResult } from '../api/api-error';
 import { CurrentUserService, CurrentUserState } from '../auth/current-user.service';
 import { RefreshTokenService } from '../auth/refresh-token.service';
@@ -28,6 +29,7 @@ describe('UserProfilePageComponent', () => {
           useValue: { state, user: () => (state().status === 'loaded' ? (state() as { user: unknown }).user : null) },
         },
         { provide: RefreshTokenService, useValue: { logoutAll } },
+        provideTaiga(),
       ],
     });
     navigateByUrl = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
@@ -73,7 +75,7 @@ describe('UserProfilePageComponent', () => {
   it('shows Back and its title in its bar, without a sign-out', () => {
     const bar = element().querySelector('app-page-bar')!;
 
-    expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['← Back', 'User profile']);
+    expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['Back', 'User profile']);
     expect(Array.from(element().querySelectorAll('button'), (item) => item.textContent!.trim())).not.toContain(
       'Sign out',
     );

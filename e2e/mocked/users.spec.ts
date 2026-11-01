@@ -47,7 +47,7 @@ test.describe('Users', () => {
     await list.open();
     await expect(list.rows).toHaveCount(20);
 
-    await list.size.selectOption('10');
+    await list.selectSize(10);
     await expect(page).toHaveURL('/users?page=1&size=10');
     await list.next.click();
     await expect(page).toHaveURL('/users?page=2&size=10');
@@ -55,8 +55,8 @@ test.describe('Users', () => {
 
     await page.reload();
 
-    await expect(list.position).toHaveText('Page 2 of 5');
-    await expect(list.size).toHaveValue('10');
+    await expect(list.pages).toHaveText('Pages 5');
+    await expect(list.shown).toHaveText('Lines per page 11–20 of 45');
     await expect(list.rows.first()).toContainText('user11@example.com');
   });
 
@@ -77,13 +77,13 @@ test.describe('Users', () => {
     await expect(list.rows).toHaveCount(1);
     const one = (await list.scroll.boundingBox())!;
 
-    await list.size.selectOption('10');
+    await list.selectSize(10);
     await expect(list.rows).toHaveCount(10);
     const ten = (await list.scroll.boundingBox())!;
     expect(ten.height, 'ten rows are higher than one').toBeGreaterThan(one.height * 3);
     expect(await list.scroll.evaluate((box) => box.scrollHeight > box.clientHeight), 'ten rows fit').toBe(false);
 
-    await list.size.selectOption('100');
+    await list.selectSize(100);
     await expect(list.rows).toHaveCount(45);
     const all = (await list.scroll.boundingBox())!;
     const pager = (await list.pager.boundingBox())!;
@@ -105,7 +105,7 @@ test.describe('Users', () => {
   });
 
   test('gives the email the rest of the width of the table, and cuts it there', async ({ page, api }) => {
-    const long = `${'qwe.very.long.name.'.repeat(4)}x@gmail.com`;
+    const long = `${'qwe.very.long.name.'.repeat(8)}x@gmail.com`;
     const user: MockUser = { id: 1, email: long, role: 'MANAGER', createdAt: '2026-10-30T09:00:00.123456Z' };
     api.respond('GET /users', usersPage([user]));
     const users = new UsersPage(page);

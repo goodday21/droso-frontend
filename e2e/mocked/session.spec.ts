@@ -26,7 +26,7 @@ async function expectSignedOut(header: AppHeader): Promise<void> {
 }
 
 async function expectSignedIn(header: AppHeader): Promise<void> {
-  await expect(header.role).toHaveText('(MANAGER)');
+  await expect(header.role).toHaveText('MANAGER');
   await expect(header.signOut).toBeVisible();
 }
 

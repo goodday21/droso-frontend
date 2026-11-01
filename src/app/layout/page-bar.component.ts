@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { Location } from '@angular/common';
 import { Router } from '@angular/router';
+import { TuiButton } from '@taiga-ui/core';
 
 /**
- * The bar of a page below the header of the application: *Back* on the left and the title of the
- * page in the middle.
+ * The bar of a page below the header of the application: *Back*, a flat button with an arrow, and
+ * the title of the page under it, both on the left.
  *
  * *Back* returns to the page this one was opened from, or opens the root when it was opened
  * directly (a link, a reload): the history of the tab would leave the application then. Which of
@@ -15,27 +16,29 @@ import { Router } from '@angular/router';
   selector: 'app-page-bar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [TuiButton],
   template: `
-    <button type="button" class="back" (click)="back()">← Back</button>
+    <button tuiButton type="button" appearance="flat-grayscale" size="xs" iconStart="@tui.arrow-left" (click)="back()">
+      Back
+    </button>
     <h1>{{ title() }}</h1>
   `,
   styles: [
     `
       :host {
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        align-items: center;
-        gap: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1rem 0 1.25rem;
       }
-      /* The third column stays empty, so that the title is in the middle of the page. */
-      .back {
-        justify-self: start;
-        font: inherit;
-        padding: 0.5rem 1.25rem;
+      /* The arrow in line with the title rather than the padding of the button. */
+      button {
+        margin-left: -0.5rem;
       }
       h1 {
-        margin: 1rem 0;
-        text-align: center;
+        margin: 0.25rem 0 0;
+        font: var(--tui-typography-heading-h3);
+        color: var(--tui-text-primary);
       }
     `,
   ],
