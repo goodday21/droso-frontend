@@ -25,4 +25,15 @@ export class UsersApiService {
       catchError((error: HttpErrorResponse) => of<ApiResult<UserPage>>({ ok: false, failure: toApiFailure(error) })),
     );
   }
+
+  /**
+   * Soft-deletes the user (`DELETE /api/v1/users/{id}`, 204 without a body): every token of the user
+   * is revoked at once. A user deleted already is a 404 `RESOURCE_NOT_FOUND`.
+   */
+  delete(id: number): Observable<ApiResult<null>> {
+    return this.http.delete<void>(`${USERS_ENDPOINT}/${id}`).pipe(
+      map((): ApiResult<null> => ({ ok: true, body: null })),
+      catchError((error: HttpErrorResponse) => of<ApiResult<null>>({ ok: false, failure: toApiFailure(error) })),
+    );
+  }
 }

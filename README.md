@@ -10,7 +10,7 @@ browser tests run at the viewport of *Desktop Chrome*.
 It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through
 `GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
 `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `POST /api/v1/auth/logout-all`,
-`GET /api/v1/auth/me` and `GET /api/v1/users`; the
+`GET /api/v1/auth/me`, `GET /api/v1/users` and `DELETE /api/v1/users/{id}`; the
 [API contract](https://github.com/goodday21/droso-backend/blob/main/backend/README.md#api-contract)
 is described there, and `src/app/health/health.model.ts`, `src/app/auth/auth.model.ts`,
 `src/app/users/users.model.ts` and `src/app/api/api-error.ts` follow it.
@@ -45,7 +45,7 @@ The dev server forwards every `/api` request to the backend on `http://localhost
 | `/register` | Sign up; on success it opens `/login?registered=1` with the email filled |
 | `/login`    | Sign in; on success it keeps the token and opens `/`; `?expired=1` tells that the session has ended |
 | `/user-profile` | The email and the role of the signed-in user, and *Logout all sessions*; signed-in users only (`authGuard`), anyone else is sent to `/login` |
-| `/users` | The users, a page at a time, in the order chosen (`?page=1&size=20&sort=id&direction=desc`); signed-in users only (`authGuard`), and the backend answers 403 to anyone but an administrator |
+| `/users` | The users, a page at a time, in the order chosen (`?page=1&size=20&sort=id&direction=desc`), and their deletion; signed-in users only (`authGuard`), and the backend answers 403 to anyone but an administrator |
 
 Any other path shows *Page not found*.
 
@@ -142,6 +142,16 @@ high as its rows, up to the bottom of the window (the page fills the window, see
 then the rows scroll inside its box under a fixed head, and the pager stays in view. While the next
 page loads, the rows of the previous one stay under a loader. A 403 shows *You do not have
 permission to manage users.*
+
+The last column, without a head and not sorted by, has a trash icon that deletes the user of the
+row: not in the row of the signed-in user, who cannot delete themselves, and in no row until `/me`
+has told who that is. The icon asks first in a dialog like *Logout all sessions*: *Delete user
+qwe.very.…@gmail.com?* (the email cut to 20 characters, as in the header), *Soft deletion. User
+might be restored later*, Cancel (focused) and Yes. Cancel, Escape and a click outside close it,
+except while the call is pending, when both buttons are disabled and Yes reads *Deleting…*. Once
+`DELETE /api/v1/users/{id}` succeeds, or answers 404 because the user is gone already, the dialog
+closes and the page of the URL is asked again; any other failure (403, 409 `LAST_ADMIN`, no
+network…) is shown in the dialog, which stays open.
 
 The email and the role, in the header and on `/user-profile`, come from `CurrentUserService`, which
 reads them from `GET /api/v1/auth/me` once per token (at the start, on a sign-in, on a sign-in in another tab), not
@@ -253,7 +263,8 @@ when the project `integration-setup` is ticked as well (the arrow left of *Filte
 
 They check what the mocked tests cannot: that the pages and the real API agree — a sign-up and a
 sign-in end to end, the password rules of the backend, a taken email, a wrong password, the list of
-users of an administrator, a page of the size chosen, and the 403 of anyone else. Every test
+users of an administrator, a page of the size chosen, the deletion of a user (gone from the list,
+the sign-in refused), and the 403 of anyone else. Every test
 registers its own `e2e-<time>-<random>@example.com`, so the database needs no cleaning, and its
 users simply pile up. Before the tests, the project `integration-setup` checks
 `GET /api/v1/health` and the sign-in of the administrator, and stops the run with a hint when the

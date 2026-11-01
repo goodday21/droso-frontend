@@ -23,6 +23,9 @@ export class UsersPage {
   readonly sizes: Locator;
   readonly previous: Locator;
   readonly next: Locator;
+  /** The dialog that asks to delete a user, and its Yes. */
+  readonly dialog: Locator;
+  readonly confirm: Locator;
 
   constructor(readonly page: Page) {
     this.heading = page.getByRole('heading', { level: 1 });
@@ -37,6 +40,8 @@ export class UsersPage {
     this.sizes = this.shown.getByRole('button');
     this.previous = this.pager.getByRole('button', { name: 'Previous' });
     this.next = this.pager.getByRole('button', { name: 'Next' });
+    this.dialog = page.getByRole('dialog');
+    this.confirm = this.dialog.getByRole('button', { name: 'Yes' });
   }
 
   async open(query = ''): Promise<void> {
@@ -71,6 +76,11 @@ export class UsersPage {
   /** The row of the user, by the email as it is read out: whole, however it is cut on the screen. */
   rowOf(email: string): Locator {
     return this.rows.filter({ has: this.page.getByRole('cell', { name: email, exact: true }) });
+  }
+
+  /** The button in the last column that asks to delete the user; none in the row of the signed-in user. */
+  deleteButton(email: string): Locator {
+    return this.scroll.getByRole('button', { name: `Delete user ${email}`, exact: true });
   }
 
   /** The ids of the rows, from the top. */

@@ -1,40 +1,62 @@
-import { TestBed } from '@angular/core/testing';
+import { Component, computed, signal } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { By } from '@angular/platform-browser';
-import { Router, provideRouter } from '@angular/router';
-import { RouterTestingHarness } from '@angular/router/testing';
+import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { TuiTablePagination } from '@taiga-ui/addon-table';
-import { provideTaiga } from '@taiga-ui/core';
-import { UserResponse } from '../auth/auth.model';
+import { TuiRoot, provideTaiga } from '@taiga-ui/core';
+import { CurrentUser, UserResponse } from '../auth/auth.model';
+import { CurrentUserService, CurrentUserState } from '../auth/current-user.service';
+import { shortenEmail } from '../header/shorten-email';
 import { UserPage } from './users.model';
 import { UsersPageComponent } from './users-page.component';
 
+/** The routes in the root of Taiga UI, where its dialog is shown, as in the application. */
+@Component({
+  standalone: true,
+  imports: [TuiRoot, RouterOutlet],
+  template: `<tui-root><router-outlet /></tui-root>`,
+})
+class HostComponent {}
+
 describe('UsersPageComponent', () => {
-  // How the email is cut is the business of `FitEmailComponent`, the colour of the role that of
-  // `RoleBadgeComponent`, how the query is read that of `parseUsersQuery`, Back that of
-  // `PageBarComponent`. Here what the page asks and shows. The menu
-  // of the sizes of the pager opens in an overlay: here the page gets the size from the event of the
-  // pager, the menu itself is clicked by the browser tests.
-  let harness: RouterTestingHarness;
+  // How the email is cut is the business of `FitEmailComponent` in the table and of `shortenEmail`
+  // in the dialog, the colour of the role that of `RoleBadgeComponent`, how the query is read that
+  // of `parseUsersQuery`, Back that of `PageBarComponent`. Here what the page asks and shows. The
+  // menu of the sizes of the pager opens in an overlay: here the page gets the size from the event
+  // of the pager, the menu itself is clicked by the browser tests. The dialog is the one of Taiga UI:
+  // Escape and a click outside it, which it handles itself, are checked by the browser tests of the
+  // profile.
+  const state = signal<CurrentUserState>({ status: 'none' });
+  let fixture: ComponentFixture<HostComponent>;
   let httpMock: HttpTestingController;
   let router: Router;
 
-  beforeEach(async () => {
+  beforeEach(() => {
+    state.set({ status: 'none' });
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ path: 'users', component: UsersPageComponent }]),
         provideHttpClient(),
         provideHttpClientTesting(),
         provideTaiga(),
+        {
+          provide: CurrentUserService,
+          useValue: { state, user: computed(() => (state().status === 'loaded' ? (state() as { user: CurrentUser }).user : null)) },
+        },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
     router = TestBed.inject(Router);
-    harness = await RouterTestingHarness.create();
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    fixture.destroy();
+    httpMock.verify();
+  });
 
   function user(id: number, email = `user${id}@example.com`): UserResponse {
     return { id, email, role: id === 1 ? 'ADMIN' : 'USER', createdAt: '2026-10-30T09:00:00.123456Z' };
@@ -45,7 +67,8 @@ describe('UsersPageComponent', () => {
   }
 
   async function open(url: string): Promise<void> {
-    await harness.navigateByUrl(url, UsersPageComponent);
+    await router.navigateByUrl(url);
+    fixture.detectChanges();
   }
 
   /** The call of the list that the page has made, by its query; the default order unless given. */
@@ -55,17 +78,20 @@ describe('UsersPageComponent', () => {
 
   function answer(page: number, size: number, body: UserPage, order?: string): void {
     call(page, size, order).flush(body);
-    harness.detectChanges();
+    fixture.detectChanges();
   }
 
   function element(): HTMLElement {
-    return harness.routeNativeElement!;
+    return (fixture.nativeElement as HTMLElement).querySelector('app-users-page')!;
   }
 
+  /** The cells of each row but those of the deletion, which have no text. */
   function rows(): string[][] {
     return Array.from(element().querySelectorAll('tr'), (row) =>
       // The email once, as it is read out: the parts on the screen repeat it.
-      Array.from(row.children, (cell) => (cell.querySelector('.whole') ?? cell).textContent!.trim()),
+      Array.from(row.querySelectorAll(':scope > :not(.actions)'), (cell) =>
+        (cell.querySelector('.whole') ?? cell).textContent!.trim(),
+      ),
     );
   }
 
@@ -87,7 +113,7 @@ describe('UsersPageComponent', () => {
 
   /** The pager of Taiga UI itself, for its sizes and for the change of the size that it emits. */
   function pager(): TuiTablePagination {
-    return harness.fixture.debugElement.query(By.directive(TuiTablePagination)).componentInstance;
+    return fixture.debugElement.query(By.directive(TuiTablePagination)).componentInstance;
   }
 
   /** The button of the order in the head of a column, by the name of the column. */
@@ -99,9 +125,12 @@ describe('UsersPageComponent', () => {
     return found!;
   }
 
-  /** `aria-sort` of each head of the table: only the column sorted by has one. */
+  /** `aria-sort` of each head of the table that sorts: only the column sorted by has one. */
   function sorted(): [string, string | null][] {
-    return Array.from(element().querySelectorAll('th'), (th) => [th.textContent!.trim(), th.getAttribute('aria-sort')]);
+    return Array.from(element().querySelectorAll('th:not(.actions)'), (th) => [
+      th.textContent!.trim(),
+      th.getAttribute('aria-sort'),
+    ]);
   }
 
   function text(selector: string): string {
@@ -110,8 +139,8 @@ describe('UsersPageComponent', () => {
 
   async function click(target: HTMLElement): Promise<void> {
     target.click();
-    await harness.fixture.whenStable();
-    harness.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
   }
 
   it('shows its bar with Back and the title', async () => {
@@ -184,7 +213,7 @@ describe('UsersPageComponent', () => {
     answer(1, 10, pageOf([user(11)], 1, 10, 35), 'sort=email&direction=asc');
 
     pager().paginationChange.emit({ page: 0, size: 20 });
-    await harness.fixture.whenStable();
+    await fixture.whenStable();
     expect(router.url).toBe('/users?page=1&size=20&sort=email&direction=asc');
     answer(0, 20, pageOf([user(1)], 0, 20, 35), 'sort=email&direction=asc');
   });
@@ -219,7 +248,7 @@ describe('UsersPageComponent', () => {
     expect(summary()[1]).toBe('Lines per page 11–20 of 35');
     expect(button('Previous').disabled).toBeFalse();
 
-    await harness.navigateByUrl('/users?page=4&size=10');
+    await open('/users?page=4&size=10');
     answer(3, 10, pageOf([user(31)], 3, 10, 35));
     expect(summary()[1]).toBe('Lines per page 31–35 of 35');
     expect(button('Next').disabled).toBeTrue();
@@ -238,7 +267,7 @@ describe('UsersPageComponent', () => {
     // The pager asks the page that keeps the first row shown, the third one of 1 row: the page
     // starts from the first one all the same, the old number means other rows.
     pager().paginationChange.emit({ page: 2, size: 10 });
-    await harness.fixture.whenStable();
+    await fixture.whenStable();
 
     expect(router.url).toBe('/users?page=1&size=10&sort=id&direction=desc');
     answer(0, 10, pageOf([user(1), user(2)], 0, 10, 21));
@@ -270,7 +299,7 @@ describe('UsersPageComponent', () => {
     expect(button('Previous').disabled).toBeTrue();
     expect(button('Next').disabled).toBeTrue();
 
-    await harness.navigateByUrl('/users?page=9');
+    await open('/users?page=9');
     answer(8, 20, pageOf([], 8, 20, 21));
     expect(rows()[1]).toEqual(['No users on this page.']);
     expect(button('Previous').disabled).toBeFalse();
@@ -317,7 +346,7 @@ describe('UsersPageComponent', () => {
     it(`shows the error of ${name}, without the table and the pager`, async () => {
       await open('/users');
       fail(call(0, 20));
-      harness.detectChanges();
+      fixture.detectChanges();
 
       expect(text('[role="alert"]')).toBe(message);
       expect(element().querySelector('table')).toBeNull();
@@ -328,12 +357,214 @@ describe('UsersPageComponent', () => {
   it('shows the list again once a page loads after a failure', async () => {
     await open('/users');
     call(0, 20).error(new ProgressEvent('error'), { status: 0 });
-    harness.detectChanges();
+    fixture.detectChanges();
 
-    await harness.navigateByUrl('/users?page=1&size=10');
+    await open('/users?page=1&size=10');
     answer(0, 10, pageOf([user(1)], 0, 10, 1));
 
     expect(element().querySelector('[role="alert"]')).toBeNull();
     expect(rows()[1]).toEqual(['1', 'user1@example.com', 'ADMIN']);
+  });
+
+  describe('Delete user', () => {
+    const me: CurrentUser = {
+      id: 1,
+      email: 'user1@example.com',
+      role: 'ADMIN',
+      permissions: ['USER_MANAGE'],
+      createdAt: '2026-10-27T10:15:30Z',
+    };
+    const order = 'sort=email&direction=asc';
+
+    beforeEach(() => state.set({ status: 'loaded', user: me }));
+
+    function dialog(): HTMLElement | null {
+      return (fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]');
+    }
+
+    /** A button of the dialog, by its text. */
+    function dialogButton(name: string): HTMLButtonElement {
+      const found = Array.from(dialog()!.querySelectorAll<HTMLButtonElement>('button')).find(
+        (item) => item.textContent!.trim() === name,
+      );
+      expect(found).withContext(`the button ${name}`).toBeDefined();
+      return found!;
+    }
+
+    /** The buttons of the deletion in the rows, by what they read out. */
+    function deletes(): string[] {
+      return Array.from(element().querySelectorAll('td.actions button'), (item) => item.getAttribute('aria-label')!);
+    }
+
+    function deleteButton(email: string): HTMLButtonElement {
+      return element().querySelector<HTMLButtonElement>(`td.actions button[aria-label="Delete user ${email}"]`)!;
+    }
+
+    /** Lets the dialog play its animation, in or out. */
+    async function settle(): Promise<void> {
+      for (let wait = 0; wait < 20; wait++) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        fixture.detectChanges();
+      }
+      await fixture.whenStable();
+    }
+
+    /** Opens the second page of 10 rows by the email, and asks to delete `user12@example.com`. */
+    async function ask(): Promise<void> {
+      await open(`/users?page=2&size=10&${order}`);
+      answer(1, 10, pageOf([user(11), user(12)], 1, 10, 12), order);
+      deleteButton('user12@example.com').click();
+      await settle();
+    }
+
+    function deleteCall(id = 12): TestRequest {
+      const request = httpMock.expectOne(`/api/v1/users/${id}`);
+      expect(request.request.method).toBe('DELETE');
+      return request;
+    }
+
+    it('offers to delete every user but the signed-in one, in a last column without a head', async () => {
+      await open('/users');
+      answer(0, 20, pageOf([user(3), user(2), user(1)], 0, 20, 3));
+
+      expect(deletes()).toEqual(['Delete user user3@example.com', 'Delete user user2@example.com']);
+      expect(element().querySelectorAll('tbody tr')[2].querySelector('td.actions')).not.toBeNull();
+      const head = element().querySelector('thead tr')!.lastElementChild!;
+      expect(head.classList).toContain('actions');
+      expect(head.textContent!.trim()).toBe('');
+      expect(head.querySelector('button')).toBeNull();
+      expect(head.getAttribute('aria-sort')).toBeNull();
+    });
+
+    it('offers to delete nobody until the signed-in user is known', async () => {
+      state.set({ status: 'loading' });
+      await open('/users');
+      answer(0, 20, pageOf([user(2), user(1)], 0, 20, 2));
+      expect(deletes()).toEqual([]);
+
+      state.set({ status: 'loaded', user: me });
+      fixture.detectChanges();
+
+      expect(deletes()).toEqual(['Delete user user2@example.com']);
+    });
+
+    it('asks first in a dialog, the email cut to 20 characters, with the focus on Cancel', async () => {
+      const long = 'qwe.very.long.name@gmail.com';
+      await open('/users');
+      answer(0, 20, pageOf([user(2, long)], 0, 20, 1));
+
+      deleteButton(long).click();
+      await settle();
+
+      expect(dialog()!.querySelector('h2')!.textContent!.trim()).toBe(`Delete user ${shortenEmail(long)}?`);
+      expect(shortenEmail(long)).toBe('qwe.very.…@gmail.com');
+      expect(dialog()!.textContent).toContain('Soft deletion. User might be restored later');
+      expect(document.activeElement).toBe(dialogButton('Cancel'));
+      expect(dialogButton('Yes')).toBeTruthy();
+    });
+
+    it('closes without a call on Cancel', async () => {
+      await ask();
+
+      dialogButton('Cancel').click();
+      await settle();
+
+      expect(dialog()).toBeNull();
+      httpMock.expectNone('/api/v1/users/12');
+    });
+
+    it('deletes on Yes, then closes and asks the page of the URL again', async () => {
+      await ask();
+
+      dialogButton('Yes').click();
+      fixture.detectChanges();
+      const request = deleteCall();
+      expect(dialogButton('Deleting…').disabled).toBeTrue();
+      expect(dialogButton('Cancel').disabled).toBeTrue();
+
+      request.flush(null, { status: 204, statusText: 'No Content' });
+      await settle();
+
+      expect(dialog()).toBeNull();
+      expect(router.url).toBe(`/users?page=2&size=10&${order}`);
+      expect(element().querySelector('section')!.getAttribute('aria-busy')).toBe('true');
+      answer(1, 10, pageOf([user(11), user(13)], 1, 10, 11), order);
+      expect(rows().slice(1).map((row) => row[0])).toEqual(['11', '13']);
+    });
+
+    it('closes and asks the page again when the user has been deleted meanwhile', async () => {
+      await ask();
+
+      dialogButton('Yes').click();
+      deleteCall().flush(
+        { status: 404, code: 'RESOURCE_NOT_FOUND', message: 'Resource not found', fieldErrors: {} },
+        { status: 404, statusText: 'Not Found' },
+      );
+      await settle();
+
+      expect(dialog()).toBeNull();
+      answer(1, 10, pageOf([user(11), user(13)], 1, 10, 11), order);
+    });
+
+    const deleteFailures: [string, (request: TestRequest) => void, string][] = [
+      [
+        '403 FORBIDDEN',
+        (request) =>
+          request.flush(
+            { status: 403, code: 'FORBIDDEN', message: 'Access denied', fieldErrors: {} },
+            { status: 403, statusText: 'Forbidden' },
+          ),
+        'You do not have permission to manage users.',
+      ],
+      [
+        '409 LAST_ADMIN',
+        (request) =>
+          request.flush(
+            { status: 409, code: 'LAST_ADMIN', message: 'The last administrator cannot be removed', fieldErrors: {} },
+            { status: 409, statusText: 'Conflict' },
+          ),
+        'The last administrator cannot be deleted.',
+      ],
+      [
+        'a response that is not an ApiError',
+        (request) => request.flush('<html>Bad gateway</html>', { status: 502, statusText: 'Bad Gateway' }),
+        'Something went wrong. Please try again later.',
+      ],
+      [
+        'no response',
+        (request) => request.error(new ProgressEvent('error'), { status: 0 }),
+        'The service is not reachable. Check your connection and try again.',
+      ],
+    ];
+
+    for (const [name, fail, message] of deleteFailures) {
+      it(`stays open with the error of ${name}, and keeps the list`, async () => {
+        await ask();
+
+        dialogButton('Yes').click();
+        fail(deleteCall());
+        await settle();
+
+        expect(dialog()!.querySelector('[role="alert"]')!.textContent!.trim()).toBe(message);
+        expect(dialogButton('Yes').disabled).toBeFalse();
+        expect(dialogButton('Cancel').disabled).toBeFalse();
+        expect(rows().slice(1).map((row) => row[0])).toEqual(['11', '12']);
+      });
+    }
+
+    it('forgets the error of the last attempt when asked again', async () => {
+      await ask();
+      dialogButton('Yes').click();
+      deleteCall().error(new ProgressEvent('error'), { status: 0 });
+      await settle();
+      dialogButton('Cancel').click();
+      await settle();
+
+      deleteButton('user11@example.com').click();
+      await settle();
+
+      expect(dialog()!.querySelector('h2')!.textContent!.trim()).toBe('Delete user user11@example.com?');
+      expect(dialog()!.querySelector('[role="alert"]')).toBeNull();
+    });
   });
 });

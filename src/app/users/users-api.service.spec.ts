@@ -50,4 +50,25 @@ describe('UsersApiService', () => {
     expect(failed).toBeFalse();
     expect(result).toEqual({ ok: false, failure: { kind: 'api', error } });
   });
+
+  it('asks DELETE /api/v1/users/{id}, and reads the 204 without a body', () => {
+    let result: ApiResult<null> | undefined;
+    service.delete(12).subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne('/api/v1/users/12');
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(result).toEqual({ ok: true, body: null });
+  });
+
+  it('returns a failed deletion as a result, not an error', () => {
+    const error = { status: 404, code: 'RESOURCE_NOT_FOUND', message: 'Resource not found', fieldErrors: {} };
+    let result: ApiResult<null> | undefined;
+    service.delete(12).subscribe((value) => (result = value));
+
+    httpMock.expectOne('/api/v1/users/12').flush(error, { status: 404, statusText: 'Not Found' });
+
+    expect(result).toEqual({ ok: false, failure: { kind: 'api', error } });
+  });
 });
