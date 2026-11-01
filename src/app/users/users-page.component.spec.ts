@@ -48,13 +48,13 @@ describe('UsersPageComponent', () => {
     await harness.navigateByUrl(url, UsersPageComponent);
   }
 
-  /** The call of the list that the page has made, by its query. */
-  function call(page: number, size: number): TestRequest {
-    return httpMock.expectOne(`/api/v1/users?page=${page}&size=${size}`);
+  /** The call of the list that the page has made, by its query; the default order unless given. */
+  function call(page: number, size: number, order = 'sort=id&direction=desc'): TestRequest {
+    return httpMock.expectOne(`/api/v1/users?page=${page}&size=${size}&${order}`);
   }
 
-  function answer(page: number, size: number, body: UserPage): void {
-    call(page, size).flush(body);
+  function answer(page: number, size: number, body: UserPage, order?: string): void {
+    call(page, size, order).flush(body);
     harness.detectChanges();
   }
 
@@ -90,6 +90,20 @@ describe('UsersPageComponent', () => {
     return harness.fixture.debugElement.query(By.directive(TuiTablePagination)).componentInstance;
   }
 
+  /** The button of the order in the head of a column, by the name of the column. */
+  function head(name: string): HTMLButtonElement {
+    const found = Array.from(element().querySelectorAll<HTMLButtonElement>('th button')).find(
+      (item) => item.textContent!.trim() === name,
+    );
+    expect(found).withContext(`the head ${name}`).toBeDefined();
+    return found!;
+  }
+
+  /** `aria-sort` of each head of the table: only the column sorted by has one. */
+  function sorted(): [string, string | null][] {
+    return Array.from(element().querySelectorAll('th'), (th) => [th.textContent!.trim(), th.getAttribute('aria-sort')]);
+  }
+
   function text(selector: string): string {
     return element().querySelector(selector)!.textContent!.trim();
   }
@@ -122,6 +136,59 @@ describe('UsersPageComponent', () => {
     expect(pager().size()).toBe(20);
   });
 
+  it('asks the newest first by default, and marks the column of the order', async () => {
+    await open('/users');
+    answer(0, 20, pageOf([user(2), user(1)], 0, 20, 2));
+
+    expect(sorted()).toEqual([
+      ['ID', 'descending'],
+      ['Email', null],
+      ['Role', null],
+    ]);
+  });
+
+  it('asks the order of the URL', async () => {
+    await open('/users?page=2&size=10&sort=role&direction=asc');
+    answer(1, 10, pageOf([user(11)], 1, 10, 21), 'sort=role&direction=asc');
+
+    expect(sorted()[2]).toEqual(['Role', 'ascending']);
+  });
+
+  // Which direction a column takes first is the business of `nextSort`.
+  it('sorts by the column of a click from the first page, and the other way round on the next one', async () => {
+    await open('/users?page=2&size=10');
+    answer(1, 10, pageOf([user(11)], 1, 10, 35));
+
+    await click(head('Email'));
+    expect(router.url).toBe('/users?page=1&size=10&sort=email&direction=asc');
+    answer(0, 10, pageOf([user(1)], 0, 10, 35), 'sort=email&direction=asc');
+    expect(sorted()[1]).toEqual(['Email', 'ascending']);
+    expect(sorted()[0]).toEqual(['ID', null]);
+
+    await click(head('Email'));
+    expect(router.url).toBe('/users?page=1&size=10&sort=email&direction=desc');
+    answer(0, 10, pageOf([user(1)], 0, 10, 35), 'sort=email&direction=desc');
+    expect(sorted()[1]).toEqual(['Email', 'descending']);
+
+    await click(head('ID'));
+    expect(router.url).toBe('/users?page=1&size=10&sort=id&direction=desc');
+    answer(0, 10, pageOf([user(1)], 0, 10, 35));
+  });
+
+  it('keeps the order on another page and on another size', async () => {
+    await open('/users?size=10&sort=email&direction=asc');
+    answer(0, 10, pageOf([user(1)], 0, 10, 35), 'sort=email&direction=asc');
+
+    await click(button('Next'));
+    expect(router.url).toBe('/users?page=2&size=10&sort=email&direction=asc');
+    answer(1, 10, pageOf([user(11)], 1, 10, 35), 'sort=email&direction=asc');
+
+    pager().paginationChange.emit({ page: 0, size: 20 });
+    await harness.fixture.whenStable();
+    expect(router.url).toBe('/users?page=1&size=20&sort=email&direction=asc');
+    answer(0, 20, pageOf([user(1)], 0, 20, 35), 'sort=email&direction=asc');
+  });
+
   // How it is cut to the width is the business of `FitEmailComponent`; the header keeps its 20.
   it('gives the email to a box that fits it to the cell, not cut to 20 characters', async () => {
     const long = 'qwe.very.long.name@gmail.com';
@@ -147,7 +214,7 @@ describe('UsersPageComponent', () => {
     expect(button('Next').disabled).toBeFalse();
 
     await click(button('Next'));
-    expect(router.url).toBe('/users?page=2&size=10');
+    expect(router.url).toBe('/users?page=2&size=10&sort=id&direction=desc');
     answer(1, 10, pageOf([user(11)], 1, 10, 35));
     expect(summary()[1]).toBe('Lines per page 11–20 of 35');
     expect(button('Previous').disabled).toBeFalse();
@@ -158,7 +225,7 @@ describe('UsersPageComponent', () => {
     expect(button('Next').disabled).toBeTrue();
 
     await click(button('Previous'));
-    expect(router.url).toBe('/users?page=3&size=10');
+    expect(router.url).toBe('/users?page=3&size=10&sort=id&direction=desc');
     answer(2, 10, pageOf([user(21)], 2, 10, 35));
     expect(summary()[1]).toBe('Lines per page 21–30 of 35');
   });
@@ -173,7 +240,7 @@ describe('UsersPageComponent', () => {
     pager().paginationChange.emit({ page: 2, size: 10 });
     await harness.fixture.whenStable();
 
-    expect(router.url).toBe('/users?page=1&size=10');
+    expect(router.url).toBe('/users?page=1&size=10&sort=id&direction=desc');
     answer(0, 10, pageOf([user(1), user(2)], 0, 10, 21));
     expect(rows().length).toBe(3);
     expect(pager().size()).toBe(10);

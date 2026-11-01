@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TuiTable, TuiTablePagination, TuiTablePaginationEvent } from '@taiga-ui/addon-table';
-import { TuiLoader, TuiNotification } from '@taiga-ui/core';
+import { TuiIcon, TuiLoader, TuiNotification } from '@taiga-ui/core';
 import { map, switchMap, tap } from 'rxjs';
 import { failureMessage } from '../api/api-error';
 import { PageBarComponent } from '../layout/page-bar.component';
@@ -10,17 +10,30 @@ import { RoleBadgeComponent } from '../layout/role-badge.component';
 import { FitEmailComponent } from './fit-email.component';
 import { UserPage } from './users.model';
 import { UsersApiService } from './users-api.service';
-import { PAGE_SIZES, UsersQuery, parseUsersQuery } from './users-query';
+import { PAGE_SIZES, UsersQuery, UsersSortKey, nextSort, parseUsersQuery } from './users-query';
 
 const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage users.' };
+
+/** The columns of the table, each sorted by the backend on a click of its head. */
+const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
+  { key: 'id', label: 'ID' },
+  { key: 'email', label: 'Email' },
+  { key: 'role', label: 'Role' },
+];
 
 /**
  * The list of the users, a page at a time (`GET /api/v1/users`); for the administrators, who have
  * the permission `USER_MANAGE`. Anyone else who opens it gets the 403 of the backend as a message.
  *
- * The page and its size are in the query of the URL (`?page=2&size=100`, the page counted from 1),
- * so that a reload and a link keep them; a change replaces the entry of the history rather than
- * adding one, so that *Back* leaves the list. The pager is the one of Taiga UI
+ * The page, its size and the order are in the query of the URL
+ * (`?page=2&size=100&sort=email&direction=asc`, the page counted from 1), so that a reload and a link
+ * keep them; a change replaces the entry of the history rather than adding one, so that *Back*
+ * leaves the list.
+ *
+ * The backend sorts the list: a click on the head of a column sorts by it (the id from the newest,
+ * the email and the role alphabetically, {@link nextSort}), a second click the other way round, and
+ * the list starts again from its first page. The head of the column sorted by has an arrow of the
+ * direction and `aria-sort`; the others a grey double arrow. The pager is the one of Taiga UI
  * (`tui-table-pagination`): the number of the pages, the rows shown out of all as a menu of the
  * sizes, and the previous and the next page.
  *
@@ -42,6 +55,7 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
     RoleBadgeComponent,
     TuiTable,
     TuiTablePagination,
+    TuiIcon,
     TuiLoader,
     TuiNotification,
   ],
@@ -61,9 +75,20 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
             <table tuiTable size="s">
               <thead tuiThead>
                 <tr>
-                  <th tuiTh scope="col" class="id" [resizable]="false">ID</th>
-                  <th tuiTh scope="col" [resizable]="false">Email</th>
-                  <th tuiTh scope="col" [resizable]="false">Role</th>
+                  @for (column of columns; track column.key) {
+                    <th
+                      tuiTh
+                      scope="col"
+                      [class.id]="column.key === 'id'"
+                      [resizable]="false"
+                      [attr.aria-sort]="ariaSort(column.key)"
+                    >
+                      <button type="button" class="sort" [class.active]="query().sort === column.key" (click)="sortBy(column.key)">
+                        {{ column.label }}
+                        <tui-icon class="arrow" [icon]="arrow(column.key)" />
+                      </button>
+                    </th>
+                  }
                 </tr>
               </thead>
               <tbody tuiTbody>
@@ -134,6 +159,29 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
       td {
         white-space: nowrap;
       }
+      /* The whole head is the button of the order of its column. */
+      .sort {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0;
+        border: none;
+        background: none;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      .sort:hover,
+      .sort.active {
+        color: var(--tui-text-primary);
+      }
+      .arrow {
+        font-size: 1rem;
+        color: var(--tui-text-tertiary);
+      }
+      .sort.active .arrow {
+        color: var(--tui-text-action);
+      }
       .id {
         text-align: right;
         color: var(--tui-text-secondary);
@@ -165,6 +213,7 @@ export class UsersPageComponent {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly sizes = [...PAGE_SIZES];
+  protected readonly columns = COLUMNS;
 
   readonly query = toSignal(this.route.queryParamMap.pipe(map(parseUsersQuery)), { requireSync: true });
 
@@ -183,7 +232,7 @@ export class UsersPageComponent {
       .pipe(
         map(parseUsersQuery),
         tap(() => this.loading.set(true)),
-        switchMap(({ page, size }) => this.api.list(page - 1, size)),
+        switchMap(({ page, size, sort, direction }) => this.api.list(page - 1, size, { sort, direction })),
         takeUntilDestroyed(),
       )
       .subscribe((result) => {
@@ -203,7 +252,23 @@ export class UsersPageComponent {
    * starts from the first page: the old number means other rows.
    */
   protected change({ page, size }: TuiTablePaginationEvent): void {
-    this.navigate({ page: size === this.query().size ? page + 1 : 1, size });
+    this.navigate({ ...this.query(), page: size === this.query().size ? page + 1 : 1, size });
+  }
+
+  /** Sorts by the column, or the other way round when sorted by it already, from the first page. */
+  protected sortBy(column: UsersSortKey): void {
+    this.navigate({ ...this.query(), ...nextSort(this.query(), column), page: 1 });
+  }
+
+  /** `aria-sort` of the head of the column: only the column sorted by has one. */
+  protected ariaSort(column: UsersSortKey): 'ascending' | 'descending' | null {
+    const { sort, direction } = this.query();
+    return sort !== column ? null : direction === 'asc' ? 'ascending' : 'descending';
+  }
+
+  protected arrow(column: UsersSortKey): string {
+    const { sort, direction } = this.query();
+    return sort !== column ? '@tui.arrow-up-down' : direction === 'asc' ? '@tui.arrow-up' : '@tui.arrow-down';
   }
 
   private navigate(query: UsersQuery): void {

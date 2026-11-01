@@ -45,7 +45,7 @@ The dev server forwards every `/api` request to the backend on `http://localhost
 | `/register` | Sign up; on success it opens `/login?registered=1` with the email filled |
 | `/login`    | Sign in; on success it keeps the token and opens `/`; `?expired=1` tells that the session has ended |
 | `/user-profile` | The email and the role of the signed-in user, and *Logout all sessions*; signed-in users only (`authGuard`), anyone else is sent to `/login` |
-| `/users` | The users, a page at a time (`?page=1&size=20`); signed-in users only (`authGuard`), and the backend answers 403 to anyone but an administrator |
+| `/users` | The users, a page at a time, in the order chosen (`?page=1&size=20&sort=id&direction=desc`); signed-in users only (`authGuard`), and the backend answers 403 to anyone but an administrator |
 
 Any other path shows *Page not found*.
 
@@ -122,12 +122,22 @@ in the font of the page, as many characters of the local part as the cell takes,
 whole domain (`qwe.very.long.na…@gmail.com`), cut again when the cell changes its width, with the
 full email on hover and for screen readers. The 20 characters of the header do not apply here. The
 users come from the `items` of `GET /api/v1/users`, the role as the badge of its colour, and
-below them is the
-pager of Taiga UI (`tui-table-pagination`): *Pages M*, *Lines per page 21–40 of 45*, where the
-rows shown open the menu of the sizes, 1, 10, 20 (the default) or 100, and the previous and the next
-page. Another size starts from the first page. The page
-and the size are in the URL, counted from 1 there and from 0 in the API, so a reload and a link
-keep them; a change replaces the entry of the history, so *Back* leaves the list. The table is as
+below them is the pager of Taiga UI (`tui-table-pagination`): *Pages M*, *Lines per page 21–40 of
+45*, where the rows shown open the menu of the sizes, 1, 10, 20 (the default) or 100, and the
+previous and the next page. Another size starts from the first page.
+
+The backend sorts the list (`sort` `id`, `email` or `role`, `direction` `asc` or `desc`), by
+default the newest first. A click on the head of a column sorts by it from the first page: the id
+from the newest, the email and the role alphabetically (`nextSort`); the next click on the same
+column turns the order round. The column sorted by has an arrow of the direction and `aria-sort`,
+the others a grey double arrow. The emails compare byte by byte (`user19@` before `user2@`), the
+roles by their codes (*ADMIN*, *MANAGER*, *USER*), as the backend does.
+
+The page, the size and the order are in the URL (`?page=2&size=10&sort=email&direction=asc`), the
+page counted from 1 there and from 0 in the API, so a reload and a link keep them; the order is
+always written, the default one too. A value that the list does not offer, or spelled otherwise
+(`Email`, `ASC`), gives the default one. A change replaces the entry of the history, so *Back*
+leaves the list. The table is as
 high as its rows, up to the bottom of the window (the page fills the window, see `styles.css`);
 then the rows scroll inside its box under a fixed head, and the pager stays in view. While the next
 page loads, the rows of the previous one stay under a loader. A 403 shows *You do not have
@@ -205,7 +215,7 @@ and a call it did not mock fails it.
 They check only what needs a real browser: typing and clicks, navigation and titles, the session
 in `localStorage` across a reload and across tabs, a second click while a request is pending, the
 layout of the header, the history of the tab, the scrolling box of the list of users, the menu
-of the sizes of its pager, the eye of the password, and the ways out of the dialog of Taiga UI on
+of the sizes of its pager, the order of the list in the URL across a reload, the eye of the password, and the ways out of the dialog of Taiga UI on
 `/user-profile` (Escape, a click outside it, neither while the call is pending).
 What each answer of the API shows on a page — every error code, a stopped backend, no network —
 is checked by the unit and component tests. The skill `.claude/skills/test-pyramid` describes
@@ -312,8 +322,9 @@ The backend needs `DROSO_JWT_SECRET` (see its README). With both running, open
 5. Sign in with the right one: the health page opens and the header shows the tab *User Profile* on the
    left, the email, the badge *USER* and *Sign out* on the right.
 6. Sign in as the administrator (see [Against the real backend](#against-the-real-backend)): the
-   header shows the tab *Users* as well, and `/users` lists the users, with the sizes of the page
-   in the menu of *Lines per page*.
+   header shows the tab *Users* as well, and `/users` lists the users, the newest first, with the
+   sizes of the page in the menu of *Lines per page*; a click on *Email* sorts them alphabetically,
+   the next one the other way round.
 7. Stop the backend and sign in again: a message above the form, *not reachable* or *Something went
    wrong*, depending on whether the dev server proxy answers with an error of its own.
 

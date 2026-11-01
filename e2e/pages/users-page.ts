@@ -53,6 +53,16 @@ export class UsersPage {
     await expect(this.page.getByRole('option')).toHaveCount(0);
   }
 
+  /** The head of a column, whose button sorts the list by it; `aria-sort` marks the column sorted by. */
+  columnHead(name: 'ID' | 'Email' | 'Role'): Locator {
+    return this.scroll.getByRole('columnheader', { name, exact: true });
+  }
+
+  /** Sorts the list by the column, or the other way round when sorted by it already. */
+  async sortBy(name: 'ID' | 'Email' | 'Role'): Promise<void> {
+    await this.columnHead(name).getByRole('button').click();
+  }
+
   /** The list has the answer for the URL: the rows of the previous page stay while it loads. */
   async loaded(): Promise<void> {
     await expect(this.page.locator('section[aria-busy="false"]')).toBeVisible();
@@ -61,6 +71,18 @@ export class UsersPage {
   /** The row of the user, by the email as it is read out: whole, however it is cut on the screen. */
   rowOf(email: string): Locator {
     return this.rows.filter({ has: this.page.getByRole('cell', { name: email, exact: true }) });
+  }
+
+  /** The ids of the rows, from the top. */
+  async ids(): Promise<number[]> {
+    return (await this.rows.locator('td.id').allTextContents()).map((id) => Number(id.trim()));
+  }
+
+  /** The emails of the rows, from the top, whole: as read out, however they are cut on the screen. */
+  async emails(): Promise<string[]> {
+    return this.rows.evaluateAll((rows) =>
+      rows.map((row) => row.querySelector('app-fit-email .whole')!.textContent!.trim()),
+    );
   }
 
   /** The number of the users, once the list has loaded: the end of `… of 45`. */
