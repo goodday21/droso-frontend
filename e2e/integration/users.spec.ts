@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { AppHeader } from '../pages/app-header';
 import { UsersPage } from '../pages/users-page';
-import { ADMIN, createUser, signIn, uniqueEmail } from '../support/backend';
+import { ADMIN, PASSWORD, createUser, signIn, uniqueEmail } from '../support/backend';
 
 // `test` of Playwright itself, not of `support/fixtures`: these tests talk to the real backend.
 // The administrator is checked by `backend.setup.ts`. The order is checked as the backend gives
@@ -46,7 +46,8 @@ test.describe('The list of users against the backend', () => {
 
     const row = list.rowOf(ADMIN.email);
     await expect(row).toHaveCount(1);
-    await expect(row.locator('td').last()).toHaveText('ADMIN');
+    await expect(row.locator('td').nth(2)).toHaveText('ADMIN');
+    await expect(list.deleteButton(ADMIN.email), 'the administrator cannot delete themselves').toHaveCount(0);
   });
 
   test('lists the newest first, and the emails in the order of the backend on a click', async ({ page, request }) => {
@@ -69,6 +70,27 @@ test.describe('The list of users against the backend', () => {
     const emails = await list.emails();
     // Byte by byte, as the collation `C` of the backend: the emails are ASCII.
     expect(emails).toEqual([...emails].sort());
+  });
+
+  test('deletes a user after a confirmation: gone from the list, and the sign-in fails', async ({ page, request }) => {
+    const email = uniqueEmail();
+    await createUser(request, email);
+    await signIn(page, ADMIN.email, ADMIN.password);
+    const list = new UsersPage(page);
+    // The newest first: the user is on the first page, whatever the earlier runs left.
+    await list.open('?size=100');
+    await list.loaded();
+    await expect(list.rowOf(email)).toHaveCount(1);
+
+    await list.deleteButton(email).click();
+    await list.confirm.click();
+
+    await expect(list.dialog).toBeHidden();
+    await list.loaded();
+    await expect(list.rowOf(email)).toHaveCount(0);
+    await expect(page).toHaveURL('/users?size=100');
+    const login = await request.post('/api/v1/auth/login', { data: { email, password: PASSWORD } });
+    expect(login.status()).toBe(401);
   });
 
   test('gives a user without the permission no tab, and the refusal of the backend', async ({ page, request }) => {

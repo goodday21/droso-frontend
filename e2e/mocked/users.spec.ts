@@ -8,7 +8,9 @@ import { seedSession } from '../support/session';
 // What the page shows for each answer, the buttons of the pager and the sizes on offer are checked
 // by the spec of the page, how an email is cut to a width by that of `FitEmailComponent`; who gets the tab, by `app.component.spec.ts`; that a
 // guest is sent to the sign-in, by `app.routes.spec.ts`. Here the navigation, the URL and the
-// history of the tab, and the layout of the table in the window.
+// history of the tab, and the layout of the table in the window. The deletion of a user is checked
+// by the spec of the page and against the backend (`integration/users.spec.ts`); Escape and a click
+// outside its dialog, which has the options of the one of the profile, by `user-profile.spec.ts`.
 
 test.describe('Users', () => {
   test.beforeEach(async ({ page, api }) => {

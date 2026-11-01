@@ -1,10 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TuiTable, TuiTablePagination, TuiTablePaginationEvent } from '@taiga-ui/addon-table';
-import { TuiIcon, TuiLoader, TuiNotification } from '@taiga-ui/core';
-import { map, switchMap, tap } from 'rxjs';
-import { failureMessage } from '../api/api-error';
+import { TuiAutoFocus } from '@taiga-ui/cdk';
+import { TuiButton, TuiDialog, TuiDialogOptions, TuiIcon, TuiLoader, TuiNotification } from '@taiga-ui/core';
+import { Subject, map, merge, switchMap, tap } from 'rxjs';
+import { ApiFailure, failureMessage } from '../api/api-error';
+import { UserResponse } from '../auth/auth.model';
+import { CurrentUserService } from '../auth/current-user.service';
+import { shortenEmail } from '../header/shorten-email';
 import { PageBarComponent } from '../layout/page-bar.component';
 import { RoleBadgeComponent } from '../layout/role-badge.component';
 import { FitEmailComponent } from './fit-email.component';
@@ -13,6 +17,11 @@ import { UsersApiService } from './users-api.service';
 import { PAGE_SIZES, UsersQuery, UsersSortKey, nextSort, parseUsersQuery } from './users-query';
 
 const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage users.' };
+
+const DELETE_FAILURE_MESSAGES = {
+  ...FAILURE_MESSAGES,
+  LAST_ADMIN: 'The last administrator cannot be deleted.',
+};
 
 /** The columns of the table, each sorted by the backend on a click of its head. */
 const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
@@ -44,6 +53,15 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
  * The table is as high as its rows, up to the bottom of the window: then it scrolls inside its box,
  * under a fixed head, while the pager below stays in view. While the next page loads, the rows of
  * the previous one stay under a loader, so that the table does not jump.
+ *
+ * The last column, without a head and not sorted by, has a button that deletes the user of the row;
+ * not in the row of the signed-in user, who cannot delete themselves, and in no row until `/me` has
+ * told who that is. The deletion asks first in a dialog of Taiga UI, like *Logout all sessions* of
+ * the profile: the email in its title cut to 20 characters ({@link shortenEmail}), the focus on
+ * Cancel; it closes on Cancel, Escape or a click outside it, but not while the call is pending. Once
+ * the backend has deleted the user (`DELETE /api/v1/users/{id}`), or answers that someone else has
+ * done it already (404), the dialog closes and the page of the URL is asked again; any other failure
+ * is shown in the dialog, which stays open.
  */
 @Component({
   selector: 'app-users-page',
@@ -55,6 +73,9 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
     RoleBadgeComponent,
     TuiTable,
     TuiTablePagination,
+    TuiAutoFocus,
+    TuiButton,
+    TuiDialog,
     TuiIcon,
     TuiLoader,
     TuiNotification,
@@ -89,6 +110,7 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
                       </button>
                     </th>
                   }
+                  <th tuiTh class="actions" [resizable]="false" aria-label="Actions"></th>
                 </tr>
               </thead>
               <tbody tuiTbody>
@@ -99,10 +121,24 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
                     <td tuiTd>
                       <app-role-badge [role]="row.role" />
                     </td>
+                    <td tuiTd class="actions">
+                      @if (canDelete(row)) {
+                        <button
+                          tuiIconButton
+                          type="button"
+                          appearance="flat-grayscale"
+                          size="xs"
+                          iconStart="@tui.trash"
+                          title="Delete"
+                          [attr.aria-label]="'Delete user ' + row.email"
+                          (click)="askDelete(row)"
+                        ></button>
+                      }
+                    </td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td tuiTd colspan="3" class="note">{{ total() === 0 ? 'No users.' : 'No users on this page.' }}</td>
+                    <td tuiTd colspan="4" class="note">{{ total() === 0 ? 'No users.' : 'No users on this page.' }}</td>
                   </tr>
                 }
               </tbody>
@@ -122,6 +158,23 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
         />
       }
     </section>
+
+    <ng-template [tuiDialog]="deletion() !== null" [tuiDialogOptions]="deleteOptions()" (tuiDialogChange)="onDeleteDialogChange($event)">
+      <div class="dialog">
+        <p>Soft deletion. User might be restored later</p>
+        @if (deleteError(); as message) {
+          <div tuiNotification appearance="negative" size="s" role="alert">{{ message }}</div>
+        }
+        <footer>
+          <button tuiButton tuiAutoFocus type="button" appearance="secondary" size="m" (click)="cancelDelete()" [disabled]="deleting()">
+            Cancel
+          </button>
+          <button tuiButton type="button" appearance="primary-destructive" size="m" (click)="confirmDelete()" [disabled]="deleting()">
+            {{ deleting() ? 'Deleting…' : 'Yes' }}
+          </button>
+        </footer>
+      </div>
+    </ng-template>
   `,
   styles: [
     `
@@ -204,6 +257,24 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
       .pager {
         flex: none;
       }
+      /* As wide as the button; the cell keeps its place in the row of the signed-in user. */
+      .actions {
+        width: 0;
+        text-align: right;
+      }
+      .dialog {
+        display: grid;
+        gap: 1rem;
+      }
+      .dialog p {
+        margin: 0;
+      }
+      .dialog footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
     `,
   ],
 })
@@ -211,6 +282,8 @@ export class UsersPageComponent {
   private readonly api = inject(UsersApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly currentUser = inject(CurrentUserService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly sizes = [...PAGE_SIZES];
   protected readonly columns = COLUMNS;
@@ -226,11 +299,28 @@ export class UsersPageComponent {
 
   readonly total = computed(() => this.loaded()?.totalElements ?? null);
 
+  /** The user that the dialog asks to delete; `null` while it is closed. */
+  readonly deletion = signal<UserResponse | null>(null);
+  readonly deleting = signal(false);
+  readonly deleteError = signal<string | null>(null);
+
+  /** Asks the page of the URL again, e.g. once a user of it has been deleted. */
+  private readonly reloads = new Subject<void>();
+
+  private readonly dismissible = toObservable(this.deleting).pipe(map((pending) => !pending));
+
+  /** Read when the dialog opens. Escape and a click outside close it, except while the call is pending. */
+  protected readonly deleteOptions = computed<Partial<TuiDialogOptions<void>>>(() => ({
+    label: `Delete user ${shortenEmail(this.deletion()?.email ?? '')}?`,
+    size: 's',
+    closable: false,
+    dismissible: this.dismissible,
+  }));
+
   constructor() {
-    // `switchMap`: the answer for a page that has been left meanwhile is dropped.
-    this.route.queryParamMap
+    // `switchMap`: the answer for a page that has been left meanwhile, or asked again, is dropped.
+    merge(this.route.queryParamMap.pipe(map(parseUsersQuery)), this.reloads.pipe(map(() => this.query())))
       .pipe(
-        map(parseUsersQuery),
         tap(() => this.loading.set(true)),
         switchMap(({ page, size, sort, direction }) => this.api.list(page - 1, size, { sort, direction })),
         takeUntilDestroyed(),
@@ -271,7 +361,57 @@ export class UsersPageComponent {
     return sort !== column ? '@tui.arrow-up-down' : direction === 'asc' ? '@tui.arrow-up' : '@tui.arrow-down';
   }
 
+  /** Not the signed-in user, and nobody until it is known who that is. */
+  protected canDelete(row: UserResponse): boolean {
+    const me = this.currentUser.user();
+    return me !== null && me.id !== row.id;
+  }
+
+  askDelete(user: UserResponse): void {
+    this.deleteError.set(null);
+    this.deletion.set(user);
+  }
+
+  cancelDelete(): void {
+    if (!this.deleting()) {
+      this.deletion.set(null);
+    }
+  }
+
+  /** The dialog was closed by Taiga UI itself: on Escape or a click outside it. */
+  protected onDeleteDialogChange(open: boolean): void {
+    if (!open) {
+      this.deletion.set(null);
+    }
+  }
+
+  confirmDelete(): void {
+    const user = this.deletion();
+    if (user === null || this.deleting()) {
+      return;
+    }
+    this.deleteError.set(null);
+    this.deleting.set(true);
+    this.api
+      .delete(user.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        this.deleting.set(false);
+        if (result.ok || isGone(result.failure)) {
+          this.deletion.set(null);
+          this.reloads.next();
+          return;
+        }
+        this.deleteError.set(failureMessage(result.failure, DELETE_FAILURE_MESSAGES));
+      });
+  }
+
   private navigate(query: UsersQuery): void {
     void this.router.navigate([], { relativeTo: this.route, queryParams: query, replaceUrl: true });
   }
+}
+
+/** The user has been deleted meanwhile, e.g. by another administrator: the goal is reached anyway. */
+function isGone(failure: ApiFailure): boolean {
+  return failure.kind === 'api' && failure.error.code === 'RESOURCE_NOT_FOUND';
 }
