@@ -34,7 +34,7 @@ test.describe('Users', () => {
     expect(back.y, 'Back is below the header').toBeGreaterThanOrEqual(bar.y + bar.height);
 
     await list.next.click();
-    await expect(page).toHaveURL('/users?page=2&size=20');
+    await expect(page).toHaveURL('/users?page=2&size=20&sort=id&direction=desc');
 
     // The pages of the list replace one another in the history.
     await list.back.click();
@@ -42,29 +42,35 @@ test.describe('Users', () => {
     await expect(page).toHaveURL('/');
   });
 
-  test('keeps the page and its size in the URL across a reload', async ({ page }) => {
+  // The emails compare byte by byte, as on the backend: `user19@` < `user2@`, the digits before `@`.
+  test('keeps the page, its size and the order in the URL across a reload', async ({ page }) => {
     const list = new UsersPage(page);
     await list.open();
     await expect(list.rows).toHaveCount(20);
+    await expect(list.rows.first()).toContainText('user45@example.com');
 
     await list.selectSize(10);
-    await expect(page).toHaveURL('/users?page=1&size=10');
+    await expect(page).toHaveURL('/users?page=1&size=10&sort=id&direction=desc');
+    await list.sortBy('Email');
+    await expect(page).toHaveURL('/users?page=1&size=10&sort=email&direction=asc');
+    await expect(list.rows.first()).toContainText('admin@example.com');
     await list.next.click();
-    await expect(page).toHaveURL('/users?page=2&size=10');
-    await expect(list.rows.first()).toContainText('user11@example.com');
+    await expect(page).toHaveURL('/users?page=2&size=10&sort=email&direction=asc');
+    await expect(list.rows.first()).toContainText('user19@example.com');
 
     await page.reload();
 
     await expect(list.pages).toHaveText('Pages 5');
     await expect(list.shown).toHaveText('Lines per page 11–20 of 45');
-    await expect(list.rows.first()).toContainText('user11@example.com');
+    await expect(list.columnHead('Email')).toHaveAttribute('aria-sort', 'ascending');
+    await expect(list.rows.first()).toContainText('user19@example.com');
   });
 
   test('Back opens the root when the list was opened directly, even after paging', async ({ page }) => {
     const list = new UsersPage(page);
     await list.open('?size=10');
     await list.next.click();
-    await expect(page).toHaveURL('/users?page=2&size=10');
+    await expect(page).toHaveURL('/users?page=2&size=10&sort=id&direction=desc');
 
     await list.back.click();
 

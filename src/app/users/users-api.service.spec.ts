@@ -17,7 +17,7 @@ describe('UsersApiService', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('asks GET /api/v1/users for the page and its size', () => {
+  it('asks GET /api/v1/users for the page, its size and the order', () => {
     const body: UserPage = {
       items: [{ id: 1, email: 'admin@example.com', role: 'ADMIN', createdAt: '2026-10-30T09:00:00.123456Z' }],
       page: 2,
@@ -26,11 +26,11 @@ describe('UsersApiService', () => {
       totalPages: 3,
     };
     let result: ApiResult<UserPage> | undefined;
-    service.list(2, 10).subscribe((value) => (result = value));
+    service.list(2, 10, { sort: 'email', direction: 'asc' }).subscribe((value) => (result = value));
 
     const request = httpMock.expectOne((candidate) => candidate.url === '/api/v1/users');
     expect(request.request.method).toBe('GET');
-    expect(request.request.urlWithParams).toBe('/api/v1/users?page=2&size=10');
+    expect(request.request.urlWithParams).toBe('/api/v1/users?page=2&size=10&sort=email&direction=asc');
     request.flush(body);
 
     expect(result).toEqual({ ok: true, body });
@@ -40,9 +40,12 @@ describe('UsersApiService', () => {
     const error = { status: 403, code: 'FORBIDDEN', message: 'Access denied', fieldErrors: {} };
     let result: ApiResult<UserPage> | undefined;
     let failed = false;
-    service.list(0, 20).subscribe({ next: (value) => (result = value), error: () => (failed = true) });
+    service.list(0, 20, { sort: 'id', direction: 'desc' }).subscribe({
+      next: (value) => (result = value),
+      error: () => (failed = true),
+    });
 
-    httpMock.expectOne('/api/v1/users?page=0&size=20').flush(error, { status: 403, statusText: 'Forbidden' });
+    httpMock.expectOne('/api/v1/users?page=0&size=20&sort=id&direction=desc').flush(error, { status: 403, statusText: 'Forbidden' });
 
     expect(failed).toBeFalse();
     expect(result).toEqual({ ok: false, failure: { kind: 'api', error } });
