@@ -4,6 +4,7 @@ import { RegisterPageComponent } from './auth/register-page.component';
 import { HealthPageComponent } from './health/health-page.component';
 import { NotFoundComponent } from './not-found/not-found.component';
 import { UserProfilePageComponent } from './profile/user-profile-page.component';
+import { UsersPageComponent } from './users/users-page.component';
 import { authGuard } from './auth/auth.guard';
 
 // The dev server answers every unknown path with index.html, so the router has to reject the rest
@@ -18,5 +19,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     title: 'User profile',
   },
+  // Any signed-in user may open it; the backend answers 403 to anyone but an administrator.
+  { path: 'users', component: UsersPageComponent, canActivate: [authGuard], title: 'Users' },
   { path: '**', component: NotFoundComponent, title: 'Page not found' },
 ];

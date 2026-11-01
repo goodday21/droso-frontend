@@ -1,6 +1,6 @@
-import { MockResponse } from './api-mock';
+import { MockResponse } from '../api-mock';
 
-/** Answers of the backend, as described by its API contract (`droso-backend/backend/README.md`). */
+/** Answers of the authentication endpoints, as described by the API contract of the backend. */
 
 export const ACCESS_TOKEN = 'e2e-access-token';
 /** The token of a refresh; the backend never gives the same one twice. */
@@ -37,19 +37,4 @@ export function currentUser(role: 'USER' | 'MANAGER' | 'ADMIN' = 'USER', email =
     status: 200,
     json: { id: 1, email, role, permissions, createdAt: '2026-10-28T10:00:00.123456Z' },
   };
-}
-
-const MESSAGES: Record<string, string> = {
-  VALIDATION_ERROR: 'Request validation failed',
-  INVALID_CREDENTIALS: 'Invalid email or password',
-  EMAIL_ALREADY_REGISTERED: 'Email is already registered',
-  REGISTRATION_DISABLED: 'Registration is disabled',
-  INTERNAL_ERROR: 'Internal server error',
-  UNAUTHORIZED: 'Unauthorized',
-  INVALID_REFRESH_TOKEN: 'Invalid refresh token',
-};
-
-/** An `ApiError`; several errors of one field are joined with `; `, as the backend does. */
-export function apiError(status: number, code: string, fieldErrors: Record<string, string> = {}): MockResponse {
-  return { status, json: { status, code, message: MESSAGES[code] ?? code, fieldErrors } };
 }

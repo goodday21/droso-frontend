@@ -3,22 +3,10 @@ import { AppHeader } from '../pages/app-header';
 import { LoginPage } from '../pages/login-page';
 import { RegisterPage } from '../pages/register-page';
 import { UserProfilePage } from '../pages/user-profile-page';
+import { PASSWORD, createUser, uniqueEmail } from '../support/backend';
 import { SESSION_KEY, readSession } from '../support/session';
 
 // `test` of Playwright itself, not of `support/fixtures`: these tests talk to the real backend.
-
-const PASSWORD = 'Sup3r-Secret!';
-
-/** A new address for every test, so that the tests need no clean database. */
-function uniqueEmail(): string {
-  return `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-
-/** Registers a user through the API, so that a test starts from an existing account. */
-async function createUser(request: APIRequestContext, email: string): Promise<void> {
-  const response = await request.post('/api/v1/auth/register', { data: { email, password: PASSWORD } });
-  expect(response.status()).toBe(201);
-}
 
 test.describe('Sign-up and sign-in against the backend', () => {
   test('registers, then signs in with the stored email and shows it with the role', async ({ page }) => {

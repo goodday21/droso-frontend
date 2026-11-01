@@ -8,17 +8,17 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Location } from '@angular/common';
 import { Router } from '@angular/router';
 import { failureMessage } from '../api/api-error';
 import { CurrentUserService } from '../auth/current-user.service';
 import { RefreshTokenService } from '../auth/refresh-token.service';
+import { PageBarComponent } from '../layout/page-bar.component';
 
 /**
  * The account of the signed-in user: the email and the role, and the sign-out of every session.
  *
  * Below the header of the application, with its tab, the page has a bar of its own: Back and its
- * title. Only a signed-in user opens it (`authGuard`).
+ * title ({@link PageBarComponent}). Only a signed-in user opens it (`authGuard`).
  *
  * *Logout all sessions* asks first, in a dialog of the page. The dialog closes on Cancel, on
  * Escape, on a click outside it, or once the backend has accepted Yes; while the call is pending
@@ -28,12 +28,10 @@ import { RefreshTokenService } from '../auth/refresh-token.service';
   selector: 'app-user-profile-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageBarComponent],
   host: { '(document:keydown.escape)': 'cancelLogoutAll()' },
   template: `
-    <div class="bar">
-      <button type="button" class="back" (click)="back()">← Back</button>
-      <h1>User profile</h1>
-    </div>
+    <app-page-bar title="User profile" />
 
     <section class="card">
       @switch (currentUser.state().status) {
@@ -79,20 +77,6 @@ import { RefreshTokenService } from '../auth/refresh-token.service';
   `,
   styles: [
     `
-      .bar {
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        align-items: center;
-        gap: 1rem;
-      }
-      /* The third column stays empty, so that the title is in the middle of the page. */
-      .back {
-        justify-self: start;
-      }
-      h1 {
-        margin: 1rem 0;
-        text-align: center;
-      }
       .card {
         background: #fff;
         border-radius: 8px;
@@ -173,7 +157,6 @@ export class UserProfilePageComponent {
   protected readonly currentUser = inject(CurrentUserService);
   private readonly refresher = inject(RefreshTokenService);
   private readonly router = inject(Router);
-  private readonly location = inject(Location);
   private readonly injector = inject(Injector);
 
   private readonly cancelButton = viewChild<ElementRef<HTMLButtonElement>>('cancelButton');
@@ -181,15 +164,6 @@ export class UserProfilePageComponent {
   readonly confirming = signal(false);
   readonly loggingOutAll = signal(false);
   readonly logoutAllError = signal<string | null>(null);
-
-  /** Back to the page this one was opened from, or to the root when it was opened directly. */
-  back(): void {
-    if (this.router.lastSuccessfulNavigation()?.previousNavigation) {
-      this.location.back();
-    } else {
-      void this.router.navigateByUrl('/');
-    }
-  }
 
   askLogoutAll(): void {
     this.logoutAllError.set(null);

@@ -13,8 +13,14 @@ export interface MockResponse {
   json?: unknown;
 }
 
+/**
+ * A fixed answer, or one built from the query of each call, e.g. a page of a list for
+ * `?page=1&size=10`.
+ */
+export type MockAnswer = MockResponse | ((query: URLSearchParams) => MockResponse);
+
 interface Entry {
-  response: MockResponse;
+  response: MockAnswer;
   gate?: Promise<void>;
 }
 
@@ -37,8 +43,9 @@ const HEALTH_UP: MockResponse = {
  * One route catches every call of the API. Two calls have a default, unless the test sets them:
  * the health endpoint, called by the root page, is UP, and the refresh, called at the start without
  * a valid token, is refused as for a guest without a cookie. Every other endpoint answers what the
- * test sets with {@link respond} or {@link hold}. A call that the test did not expect is recorded and fails the test (see
- * `fixtures.ts`). Every body sent is kept for the assertions.
+ * test sets with {@link respond} or {@link hold}, fixed or built from the query of the call. A call
+ * that the test did not expect is recorded and fails the test (see `fixtures.ts`). Every body sent
+ * is kept for the assertions.
  */
 export class ApiMock {
   private readonly responses = new Map<Endpoint, Entry>([
@@ -58,7 +65,7 @@ export class ApiMock {
   }
 
   /** Answers every later call of the endpoint with the response. */
-  respond(endpoint: Endpoint, response: MockResponse): void {
+  respond(endpoint: Endpoint, response: MockAnswer): void {
     this.responses.set(endpoint, { response });
   }
 
@@ -66,7 +73,7 @@ export class ApiMock {
    * Like {@link respond}, but keeps the calls pending until the returned function is called, so
    * that the test can look at the page while the request is in flight.
    */
-  hold(endpoint: Endpoint, response: MockResponse): () => void {
+  hold(endpoint: Endpoint, response: MockAnswer): () => void {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
     this.responses.set(endpoint, { response, gate });
@@ -80,7 +87,8 @@ export class ApiMock {
 
   private async handle(route: Route): Promise<void> {
     const request = route.request();
-    const path = new URL(request.url()).pathname.slice(API_PREFIX.length);
+    const url = new URL(request.url());
+    const path = url.pathname.slice(API_PREFIX.length);
     const call = `${request.method()} ${path}`;
     const endpoint = [...this.responses.keys()].find((candidate) => matches(candidate, call));
     if (!endpoint) {
@@ -91,7 +99,8 @@ export class ApiMock {
     const bodies = this.bodies.get(endpoint) ?? [];
     bodies.push(request.postDataJSON());
     this.bodies.set(endpoint, bodies);
-    const { response, gate } = this.responses.get(endpoint)!;
+    const { response: answer, gate } = this.responses.get(endpoint)!;
+    const response = typeof answer === 'function' ? answer(url.searchParams) : answer;
     await gate;
     await (response.json === undefined
       ? route.fulfill({ status: response.status })

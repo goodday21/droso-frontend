@@ -1,6 +1,5 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Location } from '@angular/common';
 import { Router, provideRouter } from '@angular/router';
 import { ApiResult } from '../api/api-error';
 import { CurrentUserService, CurrentUserState } from '../auth/current-user.service';
@@ -70,8 +69,9 @@ describe('UserProfilePageComponent', () => {
   }
 
   // Sign out is in the header of the application (`AppComponent`), not on the page.
+  // What Back does is the business of `PageBarComponent`.
   it('shows Back and its title in its bar, without a sign-out', () => {
-    const bar = element().querySelector('.bar')!;
+    const bar = element().querySelector('app-page-bar')!;
 
     expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['← Back', 'User profile']);
     expect(Array.from(element().querySelectorAll('button'), (item) => item.textContent!.trim())).not.toContain(
@@ -103,32 +103,6 @@ describe('UserProfilePageComponent', () => {
     expect(element().querySelector('table')).toBeNull();
     expect(element().querySelector('[role="alert"]')!.textContent!.trim()).toBe('Could not load the profile.');
     expect(button('Logout all sessions')).toBeTruthy();
-  });
-
-  describe('Back', () => {
-    it('goes back to the page it was opened from', () => {
-      spyOnProperty(TestBed.inject(Router), 'lastSuccessfulNavigation').and.returnValue(
-        signal({ previousNavigation: {} } as never),
-      );
-      const back = spyOn(TestBed.inject(Location), 'back');
-
-      click(button('← Back'));
-
-      expect(back).toHaveBeenCalledTimes(1);
-      expect(navigateByUrl).not.toHaveBeenCalled();
-    });
-
-    it('opens the root when the page was opened directly', () => {
-      spyOnProperty(TestBed.inject(Router), 'lastSuccessfulNavigation').and.returnValue(
-        signal({ previousNavigation: null } as never),
-      );
-      const back = spyOn(TestBed.inject(Location), 'back');
-
-      click(button('← Back'));
-
-      expect(back).not.toHaveBeenCalled();
-      expect(navigateByUrl).toHaveBeenCalledOnceWith('/');
-    });
   });
 
   describe('Logout all sessions', () => {
