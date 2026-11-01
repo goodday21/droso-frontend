@@ -30,7 +30,7 @@ test.describe('Sign-up and sign-in against the backend', () => {
     await expect(new AppHeader(page).signOut).toBeVisible();
     // A registration always creates a USER; the header reads the role from `GET /auth/me`. The
     // generated email is longer than 20 characters: the header cuts it and keeps the whole as a hint.
-    await expect(new AppHeader(page).role).toHaveText('(USER)');
+    await expect(new AppHeader(page).role).toHaveText('USER');
     await expect(new AppHeader(page).email).toHaveAttribute('title', email);
     const session = await readSession(page);
     expect(session?.accessToken).toBeTruthy();

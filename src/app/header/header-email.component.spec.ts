@@ -10,10 +10,12 @@ describe('HeaderEmailComponent', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('shows a short email whole, without a hint', () => {
+  it('shows a short email whole, without a hint, after an avatar with its first letter', () => {
     const element = render('qwe@gmail.com');
 
+    // The letter is generated content: the text of the element is the email alone.
     expect(element.textContent!.trim()).toBe('qwe@gmail.com');
+    expect(element.querySelector('.avatar')!.getAttribute('data-letter')).toBe('Q');
     expect(element.hasAttribute('title')).toBeFalse();
   });
 
@@ -24,10 +26,11 @@ describe('HeaderEmailComponent', () => {
     expect(element.title).toBe('qwe.very.long.name@gmail.com');
   });
 
-  it('stays empty, without a hint, until the email is known', () => {
+  it('stays empty, without an avatar or a hint, until the email is known', () => {
     const element = render(null);
 
     expect(element.textContent!.trim()).toBe('');
+    expect(element.querySelector('.avatar')).toBeNull();
     expect(element.hasAttribute('title')).toBeFalse();
   });
 });

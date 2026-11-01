@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
 import { Router, provideRouter } from '@angular/router';
+import { provideTaiga } from '@taiga-ui/core';
 import { PageBarComponent } from './page-bar.component';
 
 @Component({
@@ -16,7 +17,7 @@ describe('PageBarComponent', () => {
   let back: jasmine.Spy;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.configureTestingModule({ providers: [provideRouter([]), provideTaiga()] });
     navigateByUrl = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
     back = spyOn(TestBed.inject(Location), 'back');
   });
@@ -34,7 +35,7 @@ describe('PageBarComponent', () => {
   it('shows Back, then the title as the heading of the page', () => {
     const bar = render(null);
 
-    expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['← Back', 'Users']);
+    expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['Back', 'Users']);
     expect(bar.querySelector('h1')!.textContent).toBe('Users');
   });
 

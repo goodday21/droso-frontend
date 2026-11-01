@@ -83,33 +83,42 @@ exists only in a secure context (`https://`, `localhost`); without it only one t
 * `authGuard` lets only a signed-in user (any role) into `/user-profile`: a valid token is checked
   with `GET /me` first, an expired one is refreshed; anyone else is sent to `/login`.
 
-The header of every page spans the whole window, above the pages, which are a column of 40rem in
-the middle. It shows a signed-in user the tabs of the pages on the left (`HEADER_TABS`
-in `src/app/header/header-tabs.ts`: *Users*, only for a user with the permission `USER_MANAGE` in
-`/me`, and *User Profile*; the tab of the open page is marked), and on the right the email, the role as *(USER)*, *(MANAGER)* or *(ADMIN)*, and *Sign
-out*. The email is plain text, cut to 20 characters with the domain kept whole
-(`qwe.very.…@gmail.com`; with a long domain, the middle of the whole email), and the full one is
-shown on hover (`title`). *Sign out* stays at the right edge; the role, always whole, is as wide as
-its text and sits right before it; the email has a box of a fixed width (that of 20 × `m` in the
-font of the page) with the text at its right edge, right before the role, so that the two read as
-one line. A guest gets *Sign in* and *Sign up* on the right. Below the header,
-`/user-profile` and `/users` have a bar of their own (`PageBarComponent`): *Back* (to the page they
-were opened from, or to `/` when opened directly) and the title.
+The components and the theme are those of [Taiga UI](https://taiga-ui.dev) (`@taiga-ui/*`,
+Apache-2.0): `provideTaiga()` in `app.config.ts`, the root `tui-root` in `AppComponent`, the
+theme and the icons in `angular.json`. The font is Manrope from the package
+`@fontsource-variable/manrope` rather than from Google Fonts, so that it is the same on every
+machine and on CI.
+
+The header of every page is a white bar across the whole window, above the pages, which are a
+column of 56rem in the middle. It starts with the name, *Droso*, then shows a signed-in user the
+tabs of the pages (`HEADER_TABS` in `src/app/header/header-tabs.ts`: *Users*, only for a user with
+the permission `USER_MANAGE` in `/me`, and *User Profile*; the tab of the open page is marked), and
+on the right the email after an avatar with its first letter, the role as a badge *USER*,
+*MANAGER* or *ADMIN*, and *Sign out*. The email is plain text, cut to 20 characters with the domain
+kept whole (`qwe.very.…@gmail.com`; with a long domain, the middle of the whole email), and the full
+one is shown on hover (`title`). *Sign out* stays at the right edge; the role, always whole, is as
+wide as its badge and sits right before it; the email has a box of a fixed width (that of the
+avatar and 20 × `m` in the font of the page) with the avatar and the text at its right edge, right
+before the role, so that they read as one line. A guest gets *Sign in* and *Sign up* on the right.
+Below the header, `/user-profile` and `/users` have a bar of their own (`PageBarComponent`):
+*Back* (to the page they were opened from, or to `/` when opened directly) and the title under it.
 
 `/users` shows the id, the email and the role of each user. The email takes the rest of the width
 of the table and is cut only when it does not fit there (`FitEmailComponent`, `fitEmail`): measured
 in the font of the page, as many characters of the local part as the cell takes, then `…` and the
 whole domain (`qwe.very.long.na…@gmail.com`), cut again when the cell changes its width, with the
 full email on hover and for screen readers. The 20 characters of the header do not apply here. The
-users come from the `items` of `GET /api/v1/users`, and below them is a pager: the first, the
-previous, the next and the last page, *Page N of M* (`totalPages`), *Total* (`totalElements`) and
-*Rows per page*: 1, 10, 20 (the default) or 100; another size starts from the first page. The page
+users come from the `items` of `GET /api/v1/users`, the role as a badge (*ADMIN* red, *MANAGER*
+blue, *USER* grey), and below them is the
+pager of Taiga UI (`tui-table-pagination`): *Pages M*, *Lines per page 21–40 of 45*, where the
+rows shown open the menu of the sizes, 1, 10, 20 (the default) or 100, and the previous and the next
+page. Another size starts from the first page. The page
 and the size are in the URL, counted from 1 there and from 0 in the API, so a reload and a link
 keep them; a change replaces the entry of the history, so *Back* leaves the list. The table is as
 high as its rows, up to the bottom of the window (the page fills the window, see `styles.css`);
 then the rows scroll inside its box under a fixed head, and the pager stays in view. While the next
-page loads, the rows of the previous one stay. A 403 shows *You do not have permission to manage
-users.*
+page loads, the rows of the previous one stay under a loader. A 403 shows *You do not have
+permission to manage users.*
 
 The email and the role, in the header and on `/user-profile`, come from `CurrentUserService`, which
 reads them from `GET /api/v1/auth/me` once per token (at the start, on a sign-in, on a sign-in in another tab), not
@@ -192,7 +201,9 @@ where each kind of test belongs.
 * `e2e/support/responses/` — the answers of the backend, following its API contract, one file per
   feature (`auth.ts`, `users.ts`; `usersPage` cuts a list by the query as the backend does), and
   `errors.ts` for the `ApiError` of any endpoint;
-* `e2e/support/session.ts` — reading and seeding the session in `localStorage`.
+* `e2e/support/session.ts` — reading and seeding the session in `localStorage`; the seed is
+  written in the page only, not in the empty frame that `tui-root` adds to watch the font size,
+  whence it would come back as a `storage` event of another tab.
 
 To run one file or one test: `npm run e2e -- e2e/mocked/login.spec.ts` or `npm run e2e -- -g "pending"`.
 
@@ -284,9 +295,10 @@ The backend needs `DROSO_JWT_SECRET` (see its README). With both running, open
    sign in.
 4. Sign in with a wrong password: *Invalid email or password*, the password field is emptied.
 5. Sign in with the right one: the health page opens and the header shows the tab *User Profile* on the
-   left, the email, *(USER)* and *Sign out* on the right.
+   left, the email, the badge *USER* and *Sign out* on the right.
 6. Sign in as the administrator (see [Against the real backend](#against-the-real-backend)): the
-   header shows the tab *Users* as well, and `/users` lists the users, with *Rows per page*.
+   header shows the tab *Users* as well, and `/users` lists the users, with the sizes of the page
+   in the menu of *Lines per page*.
 7. Stop the backend and sign in again: a message above the form, *not reachable* or *Something went
    wrong*, depending on whether the dev server proxy answers with an error of its own.
 

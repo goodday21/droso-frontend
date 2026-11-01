@@ -1,15 +1,20 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { TuiTablePagination } from '@taiga-ui/addon-table';
+import { provideTaiga } from '@taiga-ui/core';
 import { UserResponse } from '../auth/auth.model';
 import { UserPage } from './users.model';
 import { UsersPageComponent } from './users-page.component';
 
 describe('UsersPageComponent', () => {
   // How the email is cut is the business of `FitEmailComponent`, how the query is read that of
-  // `parseUsersQuery`, Back that of `PageBarComponent`. Here what the page asks and shows.
+  // `parseUsersQuery`, Back that of `PageBarComponent`. Here what the page asks and shows. The menu
+  // of the sizes of the pager opens in an overlay: here the page gets the size from the event of the
+  // pager, the menu itself is clicked by the browser tests.
   let harness: RouterTestingHarness;
   let httpMock: HttpTestingController;
   let router: Router;
@@ -20,6 +25,7 @@ describe('UsersPageComponent', () => {
         provideRouter([{ path: 'users', component: UsersPageComponent }]),
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideTaiga(),
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -62,11 +68,25 @@ describe('UsersPageComponent', () => {
     );
   }
 
-  /** A button of the pager, by its label: `First`, `Previous`, `Next`, `Last`. */
+  /** A button of the pager, by its text: `Previous`, `Next`. */
   function button(name: string): HTMLButtonElement {
-    const found = element().querySelector<HTMLButtonElement>(`.pager button[aria-label="${name} page"]`) ?? undefined;
+    const found = Array.from(element().querySelectorAll<HTMLButtonElement>('.pager button')).find(
+      (item) => item.textContent!.trim() === name,
+    );
     expect(found).withContext(`the button ${name}`).toBeDefined();
     return found!;
+  }
+
+  /** The texts of the pager besides its buttons: the number of the pages, the rows shown of all. */
+  function summary(): string[] {
+    return Array.from(element().querySelectorAll('.pager > span'), (part) =>
+      part.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+  }
+
+  /** The pager of Taiga UI itself, for its sizes and for the change of the size that it emits. */
+  function pager(): TuiTablePagination {
+    return harness.fixture.debugElement.query(By.directive(TuiTablePagination)).componentInstance;
   }
 
   function text(selector: string): string {
@@ -97,9 +117,24 @@ describe('UsersPageComponent', () => {
       ['1', 'user1@example.com', 'ADMIN'],
       ['2', 'user2@example.com', 'USER'],
     ]);
-    expect(text('.position')).toBe('Page 1 of 1');
-    expect(text('.total')).toBe('Total: 2');
-    expect(element().querySelector('select')!.value).toBe('20');
+    expect(summary()).toEqual(['Pages 1', 'Lines per page 1–2 of 2']);
+    expect(pager().size()).toBe(20);
+  });
+
+  // The colours themselves are those of the appearances of the theme of Taiga UI.
+  it('shows the role as a badge: the administrator red, the manager blue, the user grey', async () => {
+    await open('/users');
+    answer(0, 20, pageOf([user(1), { ...user(2), role: 'MANAGER' }, user(3)], 0, 20, 3));
+
+    const badges = Array.from(element().querySelectorAll('tbody [tuiBadge]'), (badge) => [
+      badge.textContent!.trim(),
+      badge.getAttribute('data-appearance'),
+    ]);
+    expect(badges).toEqual([
+      ['ADMIN', 'primary-destructive'],
+      ['MANAGER', 'primary'],
+      ['USER', 'neutral'],
+    ]);
   });
 
   // How it is cut to the width is the business of `FitEmailComponent`; the header keeps its 20.
@@ -115,52 +150,48 @@ describe('UsersPageComponent', () => {
     await open('/users?page=3&size=10');
     answer(2, 10, pageOf([user(21)], 2, 10, 21));
 
-    expect(text('.position')).toBe('Page 3 of 3');
-    expect(element().querySelector('select')!.value).toBe('10');
+    expect(summary()).toEqual(['Pages 3', 'Lines per page 21–21 of 21']);
+    expect(pager().size()).toBe(10);
   });
 
   it('moves between the pages, and disables the buttons that lead nowhere', async () => {
     await open('/users?size=10');
     answer(0, 10, pageOf([user(1)], 0, 10, 35));
-    expect(button('First').disabled).toBeTrue();
+    expect(summary()).toEqual(['Pages 4', 'Lines per page 1–10 of 35']);
     expect(button('Previous').disabled).toBeTrue();
     expect(button('Next').disabled).toBeFalse();
-    expect(button('Last').disabled).toBeFalse();
 
     await click(button('Next'));
     expect(router.url).toBe('/users?page=2&size=10');
     answer(1, 10, pageOf([user(11)], 1, 10, 35));
-    expect(text('.position')).toBe('Page 2 of 4');
-    expect(button('First').disabled).toBeFalse();
+    expect(summary()[1]).toBe('Lines per page 11–20 of 35');
     expect(button('Previous').disabled).toBeFalse();
 
-    await click(button('Last'));
-    expect(router.url).toBe('/users?page=4&size=10');
+    await harness.navigateByUrl('/users?page=4&size=10');
     answer(3, 10, pageOf([user(31)], 3, 10, 35));
+    expect(summary()[1]).toBe('Lines per page 31–35 of 35');
     expect(button('Next').disabled).toBeTrue();
-    expect(button('Last').disabled).toBeTrue();
 
     await click(button('Previous'));
+    expect(router.url).toBe('/users?page=3&size=10');
     answer(2, 10, pageOf([user(21)], 2, 10, 35));
-    await click(button('First'));
-    answer(0, 10, pageOf([user(1)], 0, 10, 35));
-    expect(text('.position')).toBe('Page 1 of 4');
+    expect(summary()[1]).toBe('Lines per page 21–30 of 35');
   });
 
   it('offers 1, 10, 20 and 100 rows, and starts again from the first page on another size', async () => {
-    await open('/users?page=2');
-    answer(1, 20, pageOf([user(21)], 1, 20, 21));
-    const select = element().querySelector('select')!;
-    expect(Array.from(select.options, (option) => option.value)).toEqual(['1', '10', '20', '100']);
+    await open('/users?page=3&size=1');
+    answer(2, 1, pageOf([user(3)], 2, 1, 21));
+    expect(pager().items()).toEqual([1, 10, 20, 100]);
 
-    select.value = '100';
-    select.dispatchEvent(new Event('change'));
+    // The pager asks the page that keeps the first row shown, the third one of 1 row: the page
+    // starts from the first one all the same, the old number means other rows.
+    pager().paginationChange.emit({ page: 2, size: 10 });
     await harness.fixture.whenStable();
 
-    expect(router.url).toBe('/users?page=1&size=100');
-    answer(0, 100, pageOf([user(1), user(21)], 0, 100, 21));
+    expect(router.url).toBe('/users?page=1&size=10');
+    answer(0, 10, pageOf([user(1), user(2)], 0, 10, 21));
     expect(rows().length).toBe(3);
-    expect(select.value).toBe('100');
+    expect(pager().size()).toBe(10);
   });
 
   it('keeps the rows of the page while the next one loads, and drops the answer of a page left', async () => {
@@ -183,14 +214,15 @@ describe('UsersPageComponent', () => {
     await open('/users');
     answer(0, 20, pageOf([], 0, 20, 0));
     expect(rows()[1]).toEqual(['No users.']);
-    expect(text('.position')).toBe('Page 1 of 1');
+    expect(summary()).toEqual(['Pages 0', 'Lines per page 0 - 0 of 0']);
+    expect(button('Previous').disabled).toBeTrue();
     expect(button('Next').disabled).toBeTrue();
 
     await harness.navigateByUrl('/users?page=9');
     answer(8, 20, pageOf([], 8, 20, 21));
     expect(rows()[1]).toEqual(['No users on this page.']);
-    expect(text('.position')).toBe('Page 9 of 2');
     expect(button('Previous').disabled).toBeFalse();
+    expect(button('Next').disabled).toBeTrue();
   });
 
   const failures: [string, (request: TestRequest) => void, string][] = [

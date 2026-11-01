@@ -1,8 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { TuiTable, TuiTablePagination, TuiTablePaginationEvent } from '@taiga-ui/addon-table';
+import { TuiLoader, TuiNotification } from '@taiga-ui/core';
+import { TuiBadge } from '@taiga-ui/kit';
 import { map, switchMap, tap } from 'rxjs';
 import { failureMessage } from '../api/api-error';
+import { Role } from '../auth/auth.model';
 import { PageBarComponent } from '../layout/page-bar.component';
 import { FitEmailComponent } from './fit-email.component';
 import { UserPage } from './users.model';
@@ -12,25 +16,37 @@ import { PAGE_SIZES, UsersQuery, parseUsersQuery } from './users-query';
 const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage users.' };
 
 /**
+ * The badge of each role, an appearance of the theme of Taiga UI: the administrator a solid red one,
+ * the manager a solid blue one (the accent of the theme), with white text; the user a grey one.
+ */
+const ROLE_APPEARANCE: Record<Role, string> = {
+  ADMIN: 'primary-destructive',
+  MANAGER: 'primary',
+  USER: 'neutral',
+};
+
+/**
  * The list of the users, a page at a time (`GET /api/v1/users`); for the administrators, who have
  * the permission `USER_MANAGE`. Anyone else who opens it gets the 403 of the backend as a message.
  *
  * The page and its size are in the query of the URL (`?page=2&size=100`, the page counted from 1),
  * so that a reload and a link keep them; a change replaces the entry of the history rather than
- * adding one, so that *Back* leaves the list.
+ * adding one, so that *Back* leaves the list. The pager is the one of Taiga UI
+ * (`tui-table-pagination`): the number of the pages, the rows shown out of all as a menu of the
+ * sizes, and the previous and the next page.
  *
  * The email takes the rest of the width of the table and is cut only when it does not fit
- * ({@link FitEmailComponent}); the id and the role are as wide as their texts.
+ * ({@link FitEmailComponent}); the id and the role, a badge, are as wide as their texts.
  *
  * The table is as high as its rows, up to the bottom of the window: then it scrolls inside its box,
  * under a fixed head, while the pager below stays in view. While the next page loads, the rows of
- * the previous one stay, so that the table does not jump.
+ * the previous one stay under a loader, so that the table does not jump.
  */
 @Component({
   selector: 'app-users-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageBarComponent, FitEmailComponent],
+  imports: [PageBarComponent, FitEmailComponent, TuiTable, TuiTablePagination, TuiBadge, TuiLoader, TuiNotification],
   // `fills-window`: see `styles.css`, the page takes the rest of the window.
   host: { class: 'fills-window' },
   template: `
@@ -38,85 +54,49 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
 
     <section class="card" [attr.aria-busy]="loading()">
       @if (error(); as message) {
-        <p class="alert alert--error" role="alert">{{ message }}</p>
+        <div tuiNotification appearance="negative" size="m" role="alert">{{ message }}</div>
       } @else if (rows() === null) {
-        <p class="note">Loading…</p>
+        <div class="note"><tui-loader size="s" [inheritColor]="true" />Loading…</div>
       } @else {
-        <div class="scroll" tabindex="0" aria-label="Users">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col" class="id">ID</th>
-                <th scope="col">Email</th>
-                <th scope="col">Role</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (row of rows(); track row.id) {
+        <tui-loader class="loader" [overlay]="true" [loading]="loading()">
+          <div class="scroll" tabindex="0" aria-label="Users">
+            <table tuiTable size="s">
+              <thead tuiThead>
                 <tr>
-                  <td class="id">{{ row.id }}</td>
-                  <td class="email"><app-fit-email [email]="row.email" /></td>
-                  <td>{{ row.role }}</td>
+                  <th tuiTh scope="col" class="id" [resizable]="false">ID</th>
+                  <th tuiTh scope="col" [resizable]="false">Email</th>
+                  <th tuiTh scope="col" [resizable]="false">Role</th>
                 </tr>
-              } @empty {
-                <tr>
-                  <td colspan="3" class="note">{{ total() === 0 ? 'No users.' : 'No users on this page.' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody tuiTbody>
+                @for (row of rows(); track row.id) {
+                  <tr tuiTr>
+                    <td tuiTd class="id">{{ row.id }}</td>
+                    <td tuiTd class="email"><app-fit-email [email]="row.email" /></td>
+                    <td tuiTd>
+                      <span tuiBadge size="m" [appearance]="appearance(row.role)">{{ row.role }}</span>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td tuiTd colspan="3" class="note">{{ total() === 0 ? 'No users.' : 'No users on this page.' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </tui-loader>
       }
 
       @if (!error()) {
-        <nav class="pager" aria-label="Pages of the list">
-          <button
-            type="button"
-            (click)="open(1)"
-            [disabled]="query().page <= 1"
-            aria-label="First page"
-            title="First page"
-          >
-            «
-          </button>
-          <button
-            type="button"
-            (click)="open(query().page - 1)"
-            [disabled]="query().page <= 1"
-            aria-label="Previous page"
-            title="Previous page"
-          >
-            ‹
-          </button>
-          <span class="position">Page {{ query().page }} of {{ pages() }}</span>
-          <button
-            type="button"
-            (click)="open(query().page + 1)"
-            [disabled]="query().page >= pages()"
-            aria-label="Next page"
-            title="Next page"
-          >
-            ›
-          </button>
-          <button
-            type="button"
-            (click)="open(pages())"
-            [disabled]="query().page >= pages()"
-            aria-label="Last page"
-            title="Last page"
-          >
-            »
-          </button>
-          <span class="total">Total: {{ total() ?? '…' }}</span>
-          <label class="size">
-            Rows per page
-            <select [value]="query().size" (change)="resize($event)">
-              @for (size of sizes; track size) {
-                <option [value]="size" [selected]="size === query().size">{{ size }}</option>
-              }
-            </select>
-          </label>
-        </nav>
+        <tui-table-pagination
+          class="pager"
+          [items]="sizes"
+          [total]="total() ?? 0"
+          [page]="query().page - 1"
+          [size]="query().size"
+          (paginationChange)="change($event)"
+        />
       }
     </section>
   `,
@@ -130,44 +110,36 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
       .card {
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.75rem;
         min-height: 0;
-        background: #fff;
-        border-radius: 8px;
-        padding: 1.25rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        padding: 1rem;
+        background: var(--tui-background-base);
+        border-radius: var(--tui-radius-l);
+        box-shadow: 0 0.25rem 1.5rem rgba(0, 0, 0, 0.06);
       }
-      /* As high as the rows, up to the rest of the window; then the rows scroll under the head. */
-      .scroll {
+      /* As high as the rows, up to the rest of the window; then the rows scroll under the head.
+         The loader is a grid of one cell (its content and its spinner over it): the cell shrinks
+         with the loader, and the rows scroll inside it. */
+      .loader {
         flex: 0 1 auto;
+        grid-template-rows: minmax(0, 1fr);
         min-height: 0;
+      }
+      .scroll {
+        max-height: 100%;
         overflow: auto;
-        border: 1px solid #e4e7eb;
-        border-radius: 6px;
       }
       table {
         width: 100%;
-        border-collapse: collapse;
       }
       th,
       td {
-        padding: 0.375rem 0.75rem;
-        text-align: left;
-        border-bottom: 1px solid #e4e7eb;
         white-space: nowrap;
-      }
-      /* A line of its own: the border of a sticky cell stays behind in a collapsed table. */
-      thead th {
-        position: sticky;
-        top: 0;
-        border-bottom: none;
-        box-shadow: inset 0 -1px #e4e7eb;
-        background: #f5f7fa;
-        color: #52606d;
-        font-weight: 600;
       }
       .id {
         text-align: right;
+        color: var(--tui-text-secondary);
+        font-variant-numeric: tabular-nums;
       }
       /* The rest of the width, whatever the length of the email: the cell adds nothing to the
          widths that the table needs, its text is cut instead. */
@@ -176,50 +148,15 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
         max-width: 0;
       }
       .note {
-        margin: 0;
-        color: #52606d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1.5rem;
+        color: var(--tui-text-secondary);
       }
       .pager {
-        display: flex;
         flex: none;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.5rem;
-      }
-      .position {
-        padding: 0 0.25rem;
-        white-space: nowrap;
-      }
-      .total {
-        padding-left: 0.5rem;
-        color: #52606d;
-        white-space: nowrap;
-      }
-      .size {
-        margin-left: auto;
-      }
-      .size {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        white-space: nowrap;
-      }
-      button,
-      select {
-        font: inherit;
-      }
-      button {
-        min-width: 2rem;
-        padding: 0.25rem 0.5rem;
-      }
-      .alert {
-        margin: 0;
-        padding: 0.625rem 0.75rem;
-        border-radius: 6px;
-      }
-      .alert--error {
-        background: #fff5f5;
-        color: #c92a2a;
       }
     `,
   ],
@@ -229,7 +166,7 @@ export class UsersPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  protected readonly sizes = PAGE_SIZES;
+  protected readonly sizes = [...PAGE_SIZES];
 
   readonly query = toSignal(this.route.queryParamMap.pipe(map(parseUsersQuery)), { requireSync: true });
 
@@ -241,9 +178,6 @@ export class UsersPageComponent {
   readonly rows = computed(() => this.loaded()?.items ?? null);
 
   readonly total = computed(() => this.loaded()?.totalElements ?? null);
-
-  /** The number of the pages, at least 1: an empty list still has its first page. */
-  readonly pages = computed(() => Math.max(this.loaded()?.totalPages ?? 1, 1));
 
   constructor() {
     // `switchMap`: the answer for a page that has been left meanwhile is dropped.
@@ -266,14 +200,16 @@ export class UsersPageComponent {
       });
   }
 
-  /** Opens the page of the list, counted from 1. */
-  open(page: number): void {
-    this.navigate({ page, size: this.query().size });
+  protected appearance(role: Role): string {
+    return ROLE_APPEARANCE[role];
   }
 
-  /** Another size of the page starts from the first page: the old number means other rows. */
-  resize(event: Event): void {
-    this.navigate({ page: 1, size: Number((event.target as HTMLSelectElement).value) });
+  /**
+   * Opens the page that the pager asks, counted from 0 there and from 1 in the URL. Another size
+   * starts from the first page: the old number means other rows.
+   */
+  protected change({ page, size }: TuiTablePaginationEvent): void {
+    this.navigate({ page: size === this.query().size ? page + 1 : 1, size });
   }
 
   private navigate(query: UsersQuery): void {

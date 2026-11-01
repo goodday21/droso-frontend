@@ -17,8 +17,12 @@
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.app.json",
-            "assets": [],
-            "styles": ["src/styles.css"]
+            "assets": [{ "glob": "**/*", "input": "node_modules/@taiga-ui/icons/src", "output": "assets/taiga-ui/icons" }],
+            "styles": [
+              "node_modules/@fontsource-variable/manrope/index.css",
+              "node_modules/@taiga-ui/styles/taiga-ui-theme.less",
+              "src/styles.css"
+            ]
           }
         },
         "serve": {
@@ -33,8 +37,12 @@
           "options": {
             "polyfills": ["zone.js", "zone.js/testing"],
             "tsConfig": "tsconfig.spec.json",
-            "assets": [],
-            "styles": ["src/styles.css"]
+            "assets": [{ "glob": "**/*", "input": "node_modules/@taiga-ui/icons/src", "output": "assets/taiga-ui/icons" }],
+            "styles": [
+              "node_modules/@fontsource-variable/manrope/index.css",
+              "node_modules/@taiga-ui/styles/taiga-ui-theme.less",
+              "src/styles.css"
+            ]
           }
         }
       }

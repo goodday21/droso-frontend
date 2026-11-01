@@ -8,6 +8,13 @@ import { seedSession } from '../support/session';
 // hint, are checked by the specs of `AppComponent` and of the components of the header. Here only
 // the layout, which needs a browser.
 
+/** The right edge of the content of the header: the account ends there, before its padding. */
+async function headerEnd(page: Page): Promise<number> {
+  return page.locator('header').evaluate((header) => {
+    return header.getBoundingClientRect().right - parseFloat(getComputedStyle(header).paddingRight);
+  });
+}
+
 /** The box of the element and the extent of its text, in pixels of the page. */
 async function boxAndText(locator: Locator): Promise<{ box: DOMRect; text: DOMRect }> {
   return locator.evaluate((element) => {
@@ -21,7 +28,7 @@ async function seedSignedIn(page: Page): Promise<void> {
   await seedSession(page, { accessToken: ACCESS_TOKEN, expiresAt: Date.now() + 1800_000 });
 }
 
-test('shows the email and the role as one line, the role as wide as its text, before Sign out', async ({
+test('shows the email and the role as one line, the role as wide as its badge, before Sign out', async ({
   page,
   api,
 }) => {
@@ -33,19 +40,22 @@ test('shows the email and the role as one line, the role as wide as its text, be
   await expect(header.signOut).toBeVisible();
   const pending = { email: (await header.email.boundingBox())!, signOut: await header.signOut.boundingBox() };
   release();
-  await expect(header.role).toHaveText('(USER)');
+  await expect(header.role).toHaveText('USER');
 
   const email = await boxAndText(header.email);
+  const avatar = (await header.email.locator('.avatar').boundingBox())!;
   const role = await boxAndText(header.role);
   const signOut = (await header.signOut.boundingBox())!;
   expect(signOut, 'Sign out stays where it was while /me was pending').toEqual(pending.signOut);
   expect(email.box.width, 'the width of the email box').toBeCloseTo(pending.email.width, 0);
   expect(email.text.right).toBeCloseTo(email.box.right, 0);
+  // The avatar right before the text of the email, the gap of the line (0.5rem) apart.
+  const text = await header.email.locator('.text').boundingBox();
+  expect(text!.x - (avatar.x + avatar.width)).toBeCloseTo(8, 0);
   expect(role.text.left).toBeCloseTo(role.box.left, 0);
   expect(role.text.right).toBeCloseTo(role.box.right, 0);
-  // About one space between the end of the email and the start of the role.
-  expect(role.text.left - email.text.right).toBeGreaterThan(0);
-  expect(role.text.left - email.text.right).toBeLessThan(8);
+  // The gap of the line (0.5rem) between the end of the email and the badge of the role.
+  expect(role.text.left - email.text.right).toBeCloseTo(8, 0);
   // No empty place after the role: only the gap of the header (1rem) before Sign out.
   expect(signOut.x - role.box.right).toBeCloseTo(16, 0);
 });
@@ -57,7 +67,7 @@ test('keeps the tab, the email, the role and Sign out in a row within the page',
   const header = new AppHeader(page);
 
   await page.goto('/');
-  await expect(header.role).toHaveText('(MANAGER)');
+  await expect(header.role).toHaveText('MANAGER');
 
   // The longest role, as the widest email: both are shown whole.
   for (const box of [header.email, header.role]) {
@@ -68,12 +78,11 @@ test('keeps the tab, the email, the role and Sign out in a row within the page',
   const email = (await header.email.boundingBox())!;
   const role = (await header.role.boundingBox())!;
   const signOut = (await header.signOut.boundingBox())!;
-  const main = (await page.locator('main').boundingBox())!;
-  expect(email.y, 'one row').toBeCloseTo(role.y, 0);
+  expect(email.y + email.height / 2, 'one row').toBeCloseTo(role.y + role.height / 2, 0);
   expect(tab.x + tab.width).toBeLessThanOrEqual(email.x);
   expect(email.x + email.width).toBeLessThanOrEqual(role.x);
   expect(role.x + role.width).toBeLessThanOrEqual(signOut.x);
-  expect(signOut.x + signOut.width).toBeCloseTo(main.x + main.width, 0);
+  expect(signOut.x + signOut.width).toBeCloseTo(await headerEnd(page), 0);
 });
 
 test('keeps Sign in and Sign up on the right without a session', async ({ page }) => {
@@ -81,7 +90,6 @@ test('keeps Sign in and Sign up on the right without a session', async ({ page }
 
   await page.goto('/');
 
-  const bar = (await page.locator('header').boundingBox())!;
   const signUp = (await header.signUp.boundingBox())!;
-  expect(signUp.x + signUp.width).toBeCloseTo(bar.x + bar.width, 0);
+  expect(signUp.x + signUp.width).toBeCloseTo(await headerEnd(page), 0);
 });

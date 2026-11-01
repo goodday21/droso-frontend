@@ -22,11 +22,14 @@ test.describe('The list of users against the backend', () => {
     const total = await list.totalCount();
     expect(total).toBeGreaterThanOrEqual(2);
     await expect(list.rows).toHaveCount(Math.min(total, 20));
-    await expect(list.position).toHaveText(`Page 1 of ${Math.ceil(total / 20)}`);
+    await expect(list.pages).toHaveText(`Pages ${Math.ceil(total / 20)}`);
 
-    await list.size.selectOption('1');
+    await list.selectSize(1);
 
-    await expect(list.position).toHaveText(`Page 1 of ${total}`);
+    // One page per user, as many as the answer counts: the other tests may add users meanwhile.
+    await expect(page).toHaveURL('/users?page=1&size=1');
+    await list.loaded();
+    await expect(list.pages).toHaveText(`Pages ${await list.totalCount()}`);
     await expect(list.rows).toHaveCount(1);
     await list.next.click();
     await expect(page).toHaveURL('/users?page=2&size=1');
@@ -45,7 +48,7 @@ test.describe('The list of users against the backend', () => {
     const row = list.rowOf(ADMIN.email);
     for (let number = 1; number < pages && (await row.count()) === 0; number++) {
       await list.next.click();
-      await expect(list.position).toHaveText(`Page ${number + 1} of ${pages}`);
+      await expect(page).toHaveURL(`/users?page=${number + 1}&size=100`);
       await list.loaded();
     }
     await expect(row).toHaveCount(1);

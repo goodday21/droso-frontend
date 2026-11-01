@@ -26,7 +26,7 @@ test.describe('User profile', () => {
     await expect(page).toHaveURL('/user-profile');
     await expect(page).toHaveTitle('User profile');
     await expect(profile.heading).toHaveText('User profile');
-    await expect(header.role).toHaveText('(MANAGER)');
+    await expect(header.role).toHaveText('MANAGER');
     const bar = (await page.locator('header').boundingBox())!;
     const back = (await profile.back.boundingBox())!;
     expect(back.y, 'Back is below the header').toBeGreaterThanOrEqual(bar.y + bar.height);
@@ -54,7 +54,7 @@ test.describe('User profile', () => {
     await profile.open();
     const other = await context.newPage();
     await other.goto('/');
-    await expect(new AppHeader(other).role).toHaveText('(MANAGER)');
+    await expect(new AppHeader(other).role).toHaveText('MANAGER');
 
     await profile.logoutAll.click();
     await profile.confirm.click();
