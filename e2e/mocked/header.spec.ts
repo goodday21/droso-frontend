@@ -1,7 +1,7 @@
 import { Locator, Page } from '@playwright/test';
 import { AppHeader } from '../pages/app-header';
 import { expect, test } from '../support/fixtures';
-import { ACCESS_TOKEN, currentUser } from '../support/responses';
+import { ACCESS_TOKEN, currentUser } from '../support/responses/auth';
 import { seedSession } from '../support/session';
 
 // What the header holds and in which order, how the email is cut and that the full one is its

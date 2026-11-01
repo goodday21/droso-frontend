@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthSessionService } from './auth/auth-session.service';
 import { CurrentUserService } from './auth/current-user.service';
@@ -8,9 +8,9 @@ import { HeaderRoleComponent } from './header/header-role.component';
 import { HEADER_TABS } from './header/header-tabs';
 
 /**
- * The header of every page, then the page.
+ * The header of every page, across the whole window, then the page, in a column in the middle.
  *
- * A signed-in user gets the tabs of the pages ({@link HEADER_TABS}) on the left, and on the right
+ * A signed-in user gets the tabs of the pages that the user may open ({@link HEADER_TABS}) on the left, and on the right
  * the email, the role and *Sign out*. *Sign out* stays at the right edge, the role right before it
  * as wide as its text, and the email, in a box of a fixed width, right before the role; until `/me`
  * answers the email and the role are empty. A guest gets *Sign in* and *Sign up* on the right.
@@ -20,11 +20,11 @@ import { HEADER_TABS } from './header/header-tabs';
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive, HeaderEmailComponent, HeaderRoleComponent],
   template: `
-    <main class="page">
+    <main>
       <header class="header">
         <nav class="tabs" aria-label="Pages">
           @if (session.isAuthenticated()) {
-            @for (tab of tabs; track tab.path) {
+            @for (tab of tabs(); track tab.path) {
               <a class="tab" [routerLink]="tab.path" routerLinkActive="active" ariaCurrentWhenActive="page">{{
                 tab.label
               }}</a>
@@ -45,12 +45,17 @@ import { HEADER_TABS } from './header/header-tabs';
           }
         </div>
       </header>
-      <router-outlet />
+      <div class="content">
+        <router-outlet />
+      </div>
     </main>
   `,
   styles: [
     `
-      .page {
+      /* The header spans the window; the pages are a column in the middle of it. */
+      .content {
+        box-sizing: border-box;
+        width: 100%;
         max-width: 40rem;
         margin: 0 auto;
       }
@@ -102,7 +107,11 @@ export class AppComponent {
   private readonly refresher = inject(RefreshTokenService);
   private readonly router = inject(Router);
 
-  protected readonly tabs = HEADER_TABS;
+  /** The tabs that the user may open: one that needs a permission waits for `/me`. */
+  protected readonly tabs = computed(() => {
+    const permissions = this.currentUser.user()?.permissions ?? [];
+    return HEADER_TABS.filter((tab) => tab.permission === undefined || permissions.includes(tab.permission));
+  });
 
   /** The session is gone at once; the backend revokes the refresh cookie in the background. */
   protected signOut(): void {

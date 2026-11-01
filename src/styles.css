@@ -5,3 +5,22 @@ body {
   background: #f6f7f9;
   color: #1f2933;
 }
+/*
+ * A page that fills the rest of the window rather than growing past it (`UsersPageComponent`): the
+ * application (`AppComponent`) is then as high as the window without the padding of the body, and
+ * the page shrinks its scrolling box to fit.
+ */
+main:has(.fills-window) {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 4rem);
+}
+main:has(.fills-window) > .content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.content > .fills-window {
+  flex: 1 1 auto;
+}

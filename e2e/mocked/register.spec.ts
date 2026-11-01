@@ -1,7 +1,8 @@
 import { LoginPage } from '../pages/login-page';
 import { RegisterPage } from '../pages/register-page';
 import { expect, test } from '../support/fixtures';
-import { apiError, userCreated } from '../support/responses';
+import { userCreated } from '../support/responses/auth';
+import { apiError } from '../support/responses/errors';
 
 const EMAIL = 'qwe@gmail.com';
 const PASSWORD = 'Sup3r-Secret!';

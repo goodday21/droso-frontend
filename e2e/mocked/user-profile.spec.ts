@@ -1,13 +1,14 @@
 import { AppHeader } from '../pages/app-header';
 import { UserProfilePage } from '../pages/user-profile-page';
 import { expect, test } from '../support/fixtures';
-import { ACCESS_TOKEN, currentUser, loggedOut } from '../support/responses';
+import { ACCESS_TOKEN, currentUser, loggedOut } from '../support/responses/auth';
 import { readSession, seedSession } from '../support/session';
 
 // What the page shows for each answer, and the dialog's ways out, are checked by the spec of the
 // page; that a guest is sent to the sign-in, by `app.routes.spec.ts`; the mark of the open tab, by
-// `app.component.spec.ts`. Here the navigation, the history of the tab, the place of the dialog on
-// the screen and the tabs of the browser.
+// `app.component.spec.ts`; Back of a page opened directly (the bar is shared), by `users.spec.ts`.
+// Here the navigation, the history of the tab, the place of the dialog on the screen and the tabs
+// of the browser.
 
 test.describe('User profile', () => {
   test.beforeEach(async ({ page, api }) => {
@@ -29,15 +30,6 @@ test.describe('User profile', () => {
     const bar = (await page.locator('header').boundingBox())!;
     const back = (await profile.back.boundingBox())!;
     expect(back.y, 'Back is below the header').toBeGreaterThanOrEqual(bar.y + bar.height);
-
-    await profile.back.click();
-
-    await expect(page).toHaveURL('/');
-  });
-
-  test('Back opens the root when the page was opened directly', async ({ page }) => {
-    const profile = new UserProfilePage(page);
-    await profile.open();
 
     await profile.back.click();
 

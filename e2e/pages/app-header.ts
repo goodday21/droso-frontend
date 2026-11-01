@@ -6,6 +6,7 @@ import { Locator, Page } from '@playwright/test';
  */
 export class AppHeader {
   readonly profileTab: Locator;
+  readonly usersTab: Locator;
   readonly email: Locator;
   readonly role: Locator;
   readonly signIn: Locator;
@@ -15,6 +16,7 @@ export class AppHeader {
   constructor(page: Page) {
     const header = page.locator('header');
     this.profileTab = header.getByRole('navigation').getByRole('link', { name: 'User Profile' });
+    this.usersTab = header.getByRole('navigation').getByRole('link', { name: 'Users', exact: true });
     this.email = header.locator('app-header-email');
     this.role = header.locator('app-header-role');
     this.signIn = header.getByRole('link', { name: 'Sign in' });

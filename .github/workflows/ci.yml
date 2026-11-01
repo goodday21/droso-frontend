@@ -60,6 +60,11 @@ jobs:
     # Parallel to the job `e2e`: each one fails on its own.
     needs: unit
     runs-on: ubuntu-latest
+    # The administrator that the backend creates on start-up (its database is new on every run),
+    # and with which the tests sign in (`e2e/support/backend.ts`).
+    env:
+      DROSO_BOOTSTRAP_ADMIN_EMAIL: admin@example.com
+      E2E_ADMIN_EMAIL: admin@example.com
     steps:
       - uses: actions/checkout@v4
 
@@ -85,6 +90,11 @@ jobs:
         working-directory: droso-backend/backend
         run: |
           export DROSO_JWT_SECRET="$(openssl rand -base64 32)"
+          # A new password on every run, for the tests as well; it follows the rules of a registration.
+          password="Adm1n-$(openssl rand -hex 12)!"
+          echo "::add-mask::$password"
+          echo "E2E_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
+          export DROSO_BOOTSTRAP_ADMIN_PASSWORD="$password"
           nohup ./gradlew bootRunWithPostgres > "$RUNNER_TEMP/backend.log" 2>&1 &
 
       - uses: ./.github/actions/setup-playwright

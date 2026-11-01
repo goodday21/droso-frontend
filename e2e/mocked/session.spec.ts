@@ -4,7 +4,8 @@ import { LoginPage } from '../pages/login-page';
 import { RegisterPage } from '../pages/register-page';
 import { ApiMock } from '../support/api-mock';
 import { expect, test } from '../support/fixtures';
-import { ACCESS_TOKEN, REFRESHED_TOKEN, apiError, currentUser, loggedIn, loggedOut, refreshed } from '../support/responses';
+import { ACCESS_TOKEN, REFRESHED_TOKEN, currentUser, loggedIn, loggedOut, refreshed } from '../support/responses/auth';
+import { apiError } from '../support/responses/errors';
 import { readSession, seedSession } from '../support/session';
 
 async function signIn(page: Page, api: ApiMock): Promise<void> {

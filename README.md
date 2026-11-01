@@ -1,16 +1,16 @@
 # droso-frontend
 
 Angular 22 application that shows the health of the service and of its PostgreSQL dependency, and
-lets a user sign up and sign in. The header of every page shows the email and the role of the
-signed-in user.
+lets a user sign up and sign in; an administrator sees the list of the users. The header of every
+page shows the email and the role of the signed-in user.
 
 It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through
 `GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
-`POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `POST /api/v1/auth/logout-all` and
-`GET /api/v1/auth/me`; the
+`POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `POST /api/v1/auth/logout-all`,
+`GET /api/v1/auth/me` and `GET /api/v1/users`; the
 [API contract](https://github.com/goodday21/droso-backend/blob/main/backend/README.md#api-contract)
-is described there, and `src/app/health/health.model.ts`, `src/app/auth/auth.model.ts` and
-`src/app/api/api-error.ts` follow it.
+is described there, and `src/app/health/health.model.ts`, `src/app/auth/auth.model.ts`,
+`src/app/users/users.model.ts` and `src/app/api/api-error.ts` follow it.
 
 For local development, clone both repositories next to each other:
 
@@ -42,6 +42,7 @@ The dev server forwards every `/api` request to the backend on `http://localhost
 | `/register` | Sign up; on success it opens `/login?registered=1` with the email filled |
 | `/login`    | Sign in; on success it keeps the token and opens `/`; `?expired=1` tells that the session has ended |
 | `/user-profile` | The email and the role of the signed-in user, and *Logout all sessions*; signed-in users only (`authGuard`), anyone else is sent to `/login` |
+| `/users` | The users, a page at a time (`?page=1&size=20`); signed-in users only (`authGuard`), and the backend answers 403 to anyone but an administrator |
 
 Any other path shows *Page not found*.
 
@@ -82,17 +83,33 @@ exists only in a secure context (`https://`, `localhost`); without it only one t
 * `authGuard` lets only a signed-in user (any role) into `/user-profile`: a valid token is checked
   with `GET /me` first, an expired one is refreshed; anyone else is sent to `/login`.
 
-The header of every page shows a signed-in user the tabs of the pages on the left (`HEADER_TABS`
-in `src/app/header/header-tabs.ts`, for now only *User Profile*; the tab of the open page is
-marked), and on the right the email, the role as *(USER)*, *(MANAGER)* or *(ADMIN)*, and *Sign
+The header of every page spans the whole window, above the pages, which are a column of 40rem in
+the middle. It shows a signed-in user the tabs of the pages on the left (`HEADER_TABS`
+in `src/app/header/header-tabs.ts`: *Users*, only for a user with the permission `USER_MANAGE` in
+`/me`, and *User Profile*; the tab of the open page is marked), and on the right the email, the role as *(USER)*, *(MANAGER)* or *(ADMIN)*, and *Sign
 out*. The email is plain text, cut to 20 characters with the domain kept whole
 (`qwe.very.…@gmail.com`; with a long domain, the middle of the whole email), and the full one is
 shown on hover (`title`). *Sign out* stays at the right edge; the role, always whole, is as wide as
 its text and sits right before it; the email has a box of a fixed width (that of 20 × `m` in the
 font of the page) with the text at its right edge, right before the role, so that the two read as
 one line. A guest gets *Sign in* and *Sign up* on the right. Below the header,
-`/user-profile` has a bar of its own: *Back* (to the previous page of the tab, or to `/` when
-opened directly) and the title.
+`/user-profile` and `/users` have a bar of their own (`PageBarComponent`): *Back* (to the page they
+were opened from, or to `/` when opened directly) and the title.
+
+`/users` shows the id, the email and the role of each user. The email takes the rest of the width
+of the table and is cut only when it does not fit there (`FitEmailComponent`, `fitEmail`): measured
+in the font of the page, as many characters of the local part as the cell takes, then `…` and the
+whole domain (`qwe.very.long.na…@gmail.com`), cut again when the cell changes its width, with the
+full email on hover and for screen readers. The 20 characters of the header do not apply here. The
+users come from the `items` of `GET /api/v1/users`, and below them is a pager: the first, the
+previous, the next and the last page, *Page N of M* (`totalPages`), *Total* (`totalElements`) and
+*Rows per page*: 1, 10, 20 (the default) or 100; another size starts from the first page. The page
+and the size are in the URL, counted from 1 there and from 0 in the API, so a reload and a link
+keep them; a change replaces the entry of the history, so *Back* leaves the list. The table is as
+high as its rows, up to the bottom of the window (the page fills the window, see `styles.css`);
+then the rows scroll inside its box under a fixed head, and the pager stays in view. While the next
+page loads, the rows of the previous one stay. A 403 shows *You do not have permission to manage
+users.*
 
 The email and the role, in the header and on `/user-profile`, come from `CurrentUserService`, which
 reads them from `GET /api/v1/auth/me` once per token (at the start, on a sign-in, on a sign-in in another tab), not
@@ -165,13 +182,16 @@ and a call it did not mock fails it.
 
 They check only what needs a real browser: typing and clicks, navigation and titles, the session
 in `localStorage` across a reload and across tabs, a second click while a request is pending, the
-layout of the header.
+layout of the header, the history of the tab and the scrolling box of the list of users.
 What each answer of the API shows on a page — every error code, a stopped backend, no network —
 is checked by the unit and component tests. The skill `.claude/skills/test-pyramid` describes
 where each kind of test belongs.
 
-* `e2e/pages/` — page objects of the two forms and of the header (with the email and the role);
-* `e2e/support/responses.ts` — the answers of the backend, following its API contract;
+* `e2e/pages/` — page objects of the two forms, of the header (with the email and the role), of
+  the profile and of the list of users;
+* `e2e/support/responses/` — the answers of the backend, following its API contract, one file per
+  feature (`auth.ts`, `users.ts`; `usersPage` cuts a list by the query as the backend does), and
+  `errors.ts` for the `ApiError` of any endpoint;
 * `e2e/support/session.ts` — reading and seeding the session in `localStorage`.
 
 To run one file or one test: `npm run e2e -- e2e/mocked/login.spec.ts` or `npm run e2e -- -g "pending"`.
@@ -180,7 +200,11 @@ To run one file or one test: `npm run e2e -- e2e/mocked/login.spec.ts` or `npm r
 
 The tests of `e2e/integration/` go through the proxy of the dev server to the backend, so start it
 first, as in [Manual walkthrough](#manual-walkthrough) (`./gradlew bootRunWithPostgres` with
-`DROSO_JWT_SECRET` set):
+`DROSO_JWT_SECRET` set). The list of users needs an administrator: the backend creates one on
+start-up, when its database has none, from `DROSO_BOOTSTRAP_ADMIN_EMAIL` and
+`DROSO_BOOTSTRAP_ADMIN_PASSWORD`. The tests sign in as `admin@example.com` with `Adm1n-Secret!`, the
+example of the README of the backend; for another administrator set `E2E_ADMIN_EMAIL` and
+`E2E_ADMIN_PASSWORD` for the tests:
 
 ```bash
 npm run e2e:integration      # headless
@@ -192,10 +216,12 @@ when the project `integration-setup` is ticked as well (the arrow left of *Filte
 *Projects*). Without the backend the tests simply fail.
 
 They check what the mocked tests cannot: that the pages and the real API agree — a sign-up and a
-sign-in end to end, the password rules of the backend, a taken email, a wrong password. Every test
+sign-in end to end, the password rules of the backend, a taken email, a wrong password, the list of
+users of an administrator, a page of the size chosen, and the 403 of anyone else. Every test
 registers its own `e2e-<time>-<random>@example.com`, so the database needs no cleaning, and its
 users simply pile up. Before the tests, the project `integration-setup` checks
-`GET /api/v1/health` and stops the run with a hint when the backend does not answer.
+`GET /api/v1/health` and the sign-in of the administrator, and stops the run with a hint when the
+backend does not answer or has no such administrator.
 
 ### On CI
 
@@ -204,7 +230,9 @@ After *Unit tests and build*, two jobs run in parallel:
 * *Browser tests (mocked API)* — `npm run e2e`; on a failure the HTML report with the traces of the
   failed tests is attached to the run as `playwright-report`.
 * *Browser tests (real backend)* — checks out `main` of `goodday21/droso-backend`, starts it with
-  `./gradlew bootRunWithPostgres` (embedded PostgreSQL, a new `DROSO_JWT_SECRET` on every run),
+  `./gradlew bootRunWithPostgres` (embedded PostgreSQL, a new `DROSO_JWT_SECRET` on every run, and
+  the administrator `admin@example.com` with a new password, given to the tests as
+  `E2E_ADMIN_PASSWORD`),
   waits for its health, then runs `npm run e2e:integration`. On a failure the report and the log of
   the backend are attached as `playwright-report-integration`.
 
@@ -257,7 +285,9 @@ The backend needs `DROSO_JWT_SECRET` (see its README). With both running, open
 4. Sign in with a wrong password: *Invalid email or password*, the password field is emptied.
 5. Sign in with the right one: the health page opens and the header shows the tab *User Profile* on the
    left, the email, *(USER)* and *Sign out* on the right.
-6. Stop the backend and sign in again: a message above the form, *not reachable* or *Something went
+6. Sign in as the administrator (see [Against the real backend](#against-the-real-backend)): the
+   header shows the tab *Users* as well, and `/users` lists the users, with *Rows per page*.
+7. Stop the backend and sign in again: a message above the form, *not reachable* or *Something went
    wrong*, depending on whether the dev server proxy answers with an error of its own.
 
 ## Notes for Windows

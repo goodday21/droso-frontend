@@ -24,6 +24,7 @@ describe('AppComponent', () => {
         provideRouter([
           { path: '', children: [] },
           { path: 'user-profile', children: [] },
+          { path: 'users', children: [] },
         ]),
         { provide: CurrentUserService, useValue: { user } },
         { provide: RefreshTokenService, useValue: { logout } },
@@ -51,8 +52,8 @@ describe('AppComponent', () => {
     return (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('nav a')!;
   }
 
-  function userWithRole(role: Role): CurrentUser {
-    return { id: 1, email: 'qwe@gmail.com', role, permissions: [], createdAt: '2026-10-27T10:15:30Z' };
+  function userWithRole(role: Role, permissions: string[] = []): CurrentUser {
+    return { id: 1, email: 'qwe@gmail.com', role, permissions, createdAt: '2026-10-27T10:15:30Z' };
   }
 
   it('offers to sign in or to sign up without a session, without tabs', () => {
@@ -70,6 +71,20 @@ describe('AppComponent', () => {
       expect(itemsOf(render())).toEqual(['User Profile', 'qwe@gmail.com', `(${role})`, 'Sign out']);
     });
   }
+
+  // The permission decides, not the role: which role has it is the business of the backend.
+  it('shows the tab Users, first, only to a user with the permission USER_MANAGE', () => {
+    TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
+    user.set(userWithRole('MANAGER', ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE']));
+    const fixture = render();
+    expect(itemsOf(fixture)).toEqual(['User Profile', 'qwe@gmail.com', '(MANAGER)', 'Sign out']);
+
+    user.set(userWithRole('ADMIN', ['DEFECT_READ', 'USER_MANAGE']));
+    fixture.detectChanges();
+
+    expect(itemsOf(fixture)).toEqual(['Users', 'User Profile', 'qwe@gmail.com', '(ADMIN)', 'Sign out']);
+    expect(tabOf(fixture).getAttribute('href')).toBe('/users');
+  });
 
   it('keeps the places of the email and the role, empty, until the user is known', () => {
     TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);

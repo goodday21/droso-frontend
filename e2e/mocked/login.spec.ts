@@ -1,7 +1,8 @@
 import { AppHeader } from '../pages/app-header';
 import { LoginPage } from '../pages/login-page';
 import { expect, test } from '../support/fixtures';
-import { ACCESS_TOKEN, apiError, currentUser, loggedIn } from '../support/responses';
+import { ACCESS_TOKEN, currentUser, loggedIn } from '../support/responses/auth';
+import { apiError } from '../support/responses/errors';
 import { readSession } from '../support/session';
 
 const EMAIL = 'qwe@gmail.com';
