@@ -4,6 +4,9 @@ Angular 22 application that shows the health of the service and of its PostgreSQ
 lets a user sign up and sign in; an administrator sees the list of the users. The header of every
 page shows the email and the role of the signed-in user.
 
+It is made for desktop browsers only: narrow windows and mobile devices are not supported, and the
+browser tests run at the viewport of *Desktop Chrome*.
+
 It talks to the backend, [droso-backend](https://github.com/goodday21/droso-backend), through
 `GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
 `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `POST /api/v1/auth/logout-all`,
