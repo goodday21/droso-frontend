@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { TuiButton, TuiIcon, TuiInput, TuiLink, TuiNotification } from '@taiga-ui/core';
+import { TuiPassword } from '@taiga-ui/kit';
+import { PageBarComponent } from '../layout/page-bar.component';
 import { AuthApiService } from './auth-api.service';
 import { EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH } from './auth.model';
 import { fieldMessages, showFailure } from './form-errors';
@@ -20,21 +23,35 @@ const MESSAGES: Record<string, string> = {
   selector: 'app-register-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    PageBarComponent,
+    TuiButton,
+    TuiIcon,
+    TuiInput,
+    TuiLink,
+    TuiNotification,
+    TuiPassword,
+  ],
   styleUrl: './auth-form.css',
   template: `
-    <h1>Sign up</h1>
+    <app-page-bar title="Sign up" [back]="false" />
     <section class="card">
       <form [formGroup]="form" (ngSubmit)="submit()">
         @if (formError(); as message) {
-          <p class="alert alert--error" role="alert">{{ message }}</p>
+          <div tuiNotification appearance="negative" size="s" role="alert">{{ message }}</div>
         }
 
         @let emailErrors = messages('email');
         <div class="field">
-          <label for="email">Email</label>
-          <input id="email" type="email" formControlName="email" autocomplete="email"
-                 [class.invalid]="emailErrors.length > 0" />
+          <tui-textfield [tuiTextfieldCleaner]="false" [invalid]="emailErrors.length > 0">
+            <label tuiLabel for="email">Email</label>
+            <input tuiInput id="email" type="email" formControlName="email" autocomplete="email" />
+          </tui-textfield>
+          @if (emailTaken() && form.controls.email.hasError('server')) {
+            <p class="hint"><a tuiLink routerLink="/login">Sign in instead</a></p>
+          }
           @if (emailErrors.length > 0) {
             <ul class="errors" data-field="email">
               @for (message of emailErrors; track message) {
@@ -42,16 +59,15 @@ const MESSAGES: Record<string, string> = {
               }
             </ul>
           }
-          @if (emailTaken() && form.controls.email.hasError('server')) {
-            <p class="hint"><a routerLink="/login">Sign in instead</a></p>
-          }
         </div>
 
         @let passwordErrors = messages('password');
         <div class="field">
-          <label for="password">Password</label>
-          <input id="password" type="password" formControlName="password" autocomplete="new-password"
-                 [class.invalid]="passwordErrors.length > 0" />
+          <tui-textfield [tuiTextfieldCleaner]="false" [invalid]="passwordErrors.length > 0">
+            <label tuiLabel for="password">Password</label>
+            <input tuiInput id="password" type="password" formControlName="password" autocomplete="new-password" />
+            <tui-icon tuiPassword />
+          </tui-textfield>
           <p class="hint">
             8 to 64 characters: Latin letters, digits and punctuation, no spaces; at least one upper
             case letter, one lower case letter, one digit and one punctuation character.
@@ -65,11 +81,11 @@ const MESSAGES: Record<string, string> = {
           }
         </div>
 
-        <button type="submit" [disabled]="submitting() || registrationDisabled()">
+        <button tuiButton type="submit" size="m" [disabled]="submitting() || registrationDisabled()">
           {{ submitting() ? 'Signing up…' : 'Sign up' }}
         </button>
       </form>
-      <p class="switch">Already registered? <a routerLink="/login">Sign in</a></p>
+      <p class="switch">Already registered? <a tuiLink routerLink="/login">Sign in</a></p>
     </section>
   `,
 })

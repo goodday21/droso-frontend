@@ -79,8 +79,10 @@ exists only in a secure context (`https://`, `localhost`); without it only one t
   the 401 ends it here as well. When another tab ends the session, it opens `/login`.
 * *Sign out* in the header forgets the session at once, opens `/login` and revokes the cookie with
   `POST /auth/logout` under the same lock. The other tabs open `/login` as well.
-* *Logout all sessions* on `/user-profile` asks first in a dialog of the page, which closes on
-  *Cancel*, on Escape, on a click outside it, or once the backend has accepted *Yes*. Then
+* *Logout all sessions* on `/user-profile` asks first in a dialog of Taiga UI (`tuiDialog`, shown
+  in `tui-root` over the dimmed page, the focus on *Cancel*), which closes on *Cancel*, on Escape,
+  on a click outside it, or once the backend has accepted *Yes*; while the call is pending it
+  stays. Then
   `POST /auth/logout-all` ends every login of the user on every device; the session is cleared and
   every tab opens `/login`. When the call fails, the dialog shows the error and the session stays.
 * `authGuard` lets only a signed-in user (any role) into `/user-profile`: a valid token is checked
@@ -96,23 +98,31 @@ The header of every page is a white bar across the whole window, above the pages
 column of 56rem in the middle. It starts with the name, *Droso*, then shows a signed-in user the
 tabs of the pages (`HEADER_TABS` in `src/app/header/header-tabs.ts`: *Users*, only for a user with
 the permission `USER_MANAGE` in `/me`, and *User Profile*; the tab of the open page is marked), and
-on the right the email after an avatar with its first letter, the role as a badge *USER*,
-*MANAGER* or *ADMIN*, and *Sign out*. The email is plain text, cut to 20 characters with the domain
+on the right the email after an avatar with its first letter, the role as a badge of its colour
+(`RoleBadgeComponent`: *ADMIN* red, *MANAGER* blue, *USER* grey), and *Sign out*. The email is plain text, cut to 20 characters with the domain
 kept whole (`qwe.very.…@gmail.com`; with a long domain, the middle of the whole email), and the full
 one is shown on hover (`title`). *Sign out* stays at the right edge; the role, always whole, is as
 wide as its badge and sits right before it; the email has a box of a fixed width (that of the
 avatar and 20 × `m` in the font of the page) with the avatar and the text at its right edge, right
 before the role, so that they read as one line. A guest gets *Sign in* and *Sign up* on the right.
-Below the header, `/user-profile` and `/users` have a bar of their own (`PageBarComponent`):
-*Back* (to the page they were opened from, or to `/` when opened directly) and the title under it.
+Below the header, every page starts with its bar (`PageBarComponent`): `/user-profile` and
+`/users` with *Back* (to the page they were opened from, or to `/` when opened directly) and the
+title under it, the others with the title alone.
+
+`/login` and `/register` are a narrow card in the middle: the fields of Taiga UI (`tui-textfield`)
+with an eye that shows the password or hides it, the messages of each field under it (the field
+itself red and `aria-invalid`), the messages of the form above it (`tuiNotification`), and the
+link to the other page under it. `/user-profile` shows the email and the role, the badge of its
+colour, in a table, and *Logout all sessions*. `/` shows the state of the service as a badge (*UP*
+green, *DOWN* red, *CHECKING* grey), *Refresh* and the details of the last answer.
 
 `/users` shows the id, the email and the role of each user. The email takes the rest of the width
 of the table and is cut only when it does not fit there (`FitEmailComponent`, `fitEmail`): measured
 in the font of the page, as many characters of the local part as the cell takes, then `…` and the
 whole domain (`qwe.very.long.na…@gmail.com`), cut again when the cell changes its width, with the
 full email on hover and for screen readers. The 20 characters of the header do not apply here. The
-users come from the `items` of `GET /api/v1/users`, the role as a badge (*ADMIN* red, *MANAGER*
-blue, *USER* grey), and below them is the
+users come from the `items` of `GET /api/v1/users`, the role as the badge of its colour, and
+below them is the
 pager of Taiga UI (`tui-table-pagination`): *Pages M*, *Lines per page 21–40 of 45*, where the
 rows shown open the menu of the sizes, 1, 10, 20 (the default) or 100, and the previous and the next
 page. Another size starts from the first page. The page
@@ -194,7 +204,9 @@ and a call it did not mock fails it.
 
 They check only what needs a real browser: typing and clicks, navigation and titles, the session
 in `localStorage` across a reload and across tabs, a second click while a request is pending, the
-layout of the header, the history of the tab and the scrolling box of the list of users.
+layout of the header, the history of the tab, the scrolling box of the list of users, the menu
+of the sizes of its pager, the eye of the password, and the ways out of the dialog of Taiga UI on
+`/user-profile` (Escape, a click outside it, neither while the call is pending).
 What each answer of the API shows on a page — every error code, a stopped backend, no network —
 is checked by the unit and component tests. The skill `.claude/skills/test-pyramid` describes
 where each kind of test belongs.

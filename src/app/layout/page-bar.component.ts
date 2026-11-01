@@ -5,7 +5,8 @@ import { TuiButton } from '@taiga-ui/core';
 
 /**
  * The bar of a page below the header of the application: *Back*, a flat button with an arrow, and
- * the title of the page under it, both on the left.
+ * the title of the page under it, both on the left. A page that is not opened from another one (the
+ * sign-in, the sign-up, the root, *Page not found*) has the title alone (`[back]="false"`).
  *
  * *Back* returns to the page this one was opened from, or opens the root when it was opened
  * directly (a link, a reload): the history of the tab would leave the application then. Which of
@@ -18,9 +19,11 @@ import { TuiButton } from '@taiga-ui/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TuiButton],
   template: `
-    <button tuiButton type="button" appearance="flat-grayscale" size="xs" iconStart="@tui.arrow-left" (click)="back()">
-      Back
-    </button>
+    @if (showBack()) {
+      <button tuiButton type="button" appearance="flat-grayscale" size="xs" iconStart="@tui.arrow-left" (click)="back()">
+        Back
+      </button>
+    }
     <h1>{{ title() }}</h1>
   `,
   styles: [
@@ -45,6 +48,8 @@ import { TuiButton } from '@taiga-ui/core';
 })
 export class PageBarComponent {
   readonly title = input.required<string>();
+  /** Whether the bar has *Back*. */
+  readonly showBack = input(true, { alias: 'back' });
 
   private readonly router = inject(Router);
   private readonly location = inject(Location);

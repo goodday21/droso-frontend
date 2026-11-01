@@ -15,6 +15,13 @@ describe('HealthPanelComponent', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
+  afterEach(() => httpMock.verify());
+
+  /** The appearance of the badge of the state, a colour of the theme of Taiga UI. */
+  function badge(element: HTMLElement): string | null {
+    return element.querySelector('[tuiBadge]')!.getAttribute('data-appearance');
+  }
+
   it('shows UP when the backend answers HTTP 200', async () => {
     const fixture = TestBed.createComponent(HealthPanelComponent);
     fixture.detectChanges();
@@ -27,6 +34,7 @@ describe('HealthPanelComponent', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('UP');
+    expect(badge(fixture.nativeElement)).toBe('positive');
     expect(text).toContain('3 ms');
   });
 
@@ -42,6 +50,7 @@ describe('HealthPanelComponent', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('DOWN');
+    expect(badge(fixture.nativeElement)).toBe('negative');
     expect(text).toContain('503');
   });
 
@@ -56,5 +65,6 @@ describe('HealthPanelComponent', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('not reachable');
+    expect(badge(fixture.nativeElement)).toBe('negative');
   });
 });

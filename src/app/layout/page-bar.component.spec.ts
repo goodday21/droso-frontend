@@ -12,6 +12,13 @@ import { PageBarComponent } from './page-bar.component';
 })
 class HostComponent {}
 
+@Component({
+  standalone: true,
+  imports: [PageBarComponent],
+  template: `<app-page-bar title="Sign in" [back]="false" />`,
+})
+class HostWithoutBackComponent {}
+
 describe('PageBarComponent', () => {
   let navigateByUrl: jasmine.Spy;
   let back: jasmine.Spy;
@@ -37,6 +44,15 @@ describe('PageBarComponent', () => {
 
     expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['Back', 'Users']);
     expect(bar.querySelector('h1')!.textContent).toBe('Users');
+  });
+
+  it('shows the title alone when the page has no Back', () => {
+    const fixture = TestBed.createComponent(HostWithoutBackComponent);
+    fixture.detectChanges();
+    const bar = (fixture.nativeElement as HTMLElement).querySelector('app-page-bar')!;
+
+    expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['Sign in']);
+    expect(bar.querySelector('button')).toBeNull();
   });
 
   it('goes back to the page it was opened from', () => {
