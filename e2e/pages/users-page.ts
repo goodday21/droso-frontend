@@ -40,12 +40,9 @@ export class UsersPage {
     await expect(this.page.locator('section[aria-busy="false"]')).toBeVisible();
   }
 
-  /** The row of the user, whose email is cut when long: the full one is then its hint. */
+  /** The row of the user, by the email as it is read out: whole, however it is cut on the screen. */
   rowOf(email: string): Locator {
-    const cell = this.page
-      .locator(`td.email[title="${email}"]`)
-      .or(this.page.getByRole('cell', { name: email, exact: true }));
-    return this.rows.filter({ has: cell });
+    return this.rows.filter({ has: this.page.getByRole('cell', { name: email, exact: true }) });
   }
 
   /** The number of the users, once the list has loaded. */

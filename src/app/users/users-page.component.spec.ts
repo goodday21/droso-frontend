@@ -8,7 +8,7 @@ import { UserPage } from './users.model';
 import { UsersPageComponent } from './users-page.component';
 
 describe('UsersPageComponent', () => {
-  // How the email is cut is the business of `shortenEmail`, how the query is read that of
+  // How the email is cut is the business of `FitEmailComponent`, how the query is read that of
   // `parseUsersQuery`, Back that of `PageBarComponent`. Here what the page asks and shows.
   let harness: RouterTestingHarness;
   let httpMock: HttpTestingController;
@@ -57,7 +57,8 @@ describe('UsersPageComponent', () => {
 
   function rows(): string[][] {
     return Array.from(element().querySelectorAll('tr'), (row) =>
-      Array.from(row.children, (cell) => cell.textContent!.trim()),
+      // The email once, as it is read out: the parts on the screen repeat it.
+      Array.from(row.children, (cell) => (cell.querySelector('.whole') ?? cell).textContent!.trim()),
     );
   }
 
@@ -101,15 +102,13 @@ describe('UsersPageComponent', () => {
     expect(element().querySelector('select')!.value).toBe('20');
   });
 
-  it('cuts a long email as the header does, with the full one as its hint', async () => {
+  // How it is cut to the width is the business of `FitEmailComponent`; the header keeps its 20.
+  it('gives the email to a box that fits it to the cell, not cut to 20 characters', async () => {
     const long = 'qwe.very.long.name@gmail.com';
     await open('/users');
-    answer(0, 20, pageOf([user(1, long), user(2)], 0, 20, 2));
+    answer(0, 20, pageOf([user(1, long)], 0, 20, 1));
 
-    const cells = element().querySelectorAll<HTMLElement>('td.email');
-    expect(cells[0].textContent).toBe('qwe.very.…@gmail.com');
-    expect(cells[0].title).toBe(long);
-    expect(cells[1].hasAttribute('title')).toBeFalse();
+    expect(element().querySelector('td.email app-fit-email .whole')!.textContent).toBe(long);
   });
 
   it('asks the page and the size of the URL, the page counted from 1 there and from 0 in the API', async () => {

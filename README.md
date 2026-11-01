@@ -96,8 +96,12 @@ one line. A guest gets *Sign in* and *Sign up* on the right. Below the header,
 `/user-profile` and `/users` have a bar of their own (`PageBarComponent`): *Back* (to the page they
 were opened from, or to `/` when opened directly) and the title.
 
-`/users` shows the id, the email (cut as in the header, the full one on hover) and the role of
-each user, from the `items` of `GET /api/v1/users`, and below them a pager: the first, the
+`/users` shows the id, the email and the role of each user. The email takes the rest of the width
+of the table and is cut only when it does not fit there (`FitEmailComponent`, `fitEmail`): measured
+in the font of the page, as many characters of the local part as the cell takes, then `…` and the
+whole domain (`qwe.very.long.na…@gmail.com`), cut again when the cell changes its width, with the
+full email on hover and for screen readers. The 20 characters of the header do not apply here. The
+users come from the `items` of `GET /api/v1/users`, and below them is a pager: the first, the
 previous, the next and the last page, *Page N of M* (`totalPages`), *Total* (`totalElements`) and
 *Rows per page*: 1, 10, 20 (the default) or 100; another size starts from the first page. The page
 and the size are in the URL, counted from 1 there and from 0 in the API, so a reload and a link

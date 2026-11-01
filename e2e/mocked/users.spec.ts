@@ -2,11 +2,11 @@ import { AppHeader } from '../pages/app-header';
 import { UsersPage } from '../pages/users-page';
 import { expect, test } from '../support/fixtures';
 import { ACCESS_TOKEN, currentUser } from '../support/responses/auth';
-import { users, usersPage } from '../support/responses/users';
+import { MockUser, users, usersPage } from '../support/responses/users';
 import { seedSession } from '../support/session';
 
-// What the page shows for each answer, the buttons of the pager, the sizes on offer and the cut
-// emails are checked by the spec of the page; who gets the tab, by `app.component.spec.ts`; that a
+// What the page shows for each answer, the buttons of the pager and the sizes on offer are checked
+// by the spec of the page, how an email is cut to a width by that of `FitEmailComponent`; who gets the tab, by `app.component.spec.ts`; that a
 // guest is sent to the sign-in, by `app.routes.spec.ts`. Here the navigation, the URL and the
 // history of the tab, and the layout of the table in the window.
 
@@ -102,5 +102,24 @@ test.describe('Users', () => {
     await expect(list.rows.last()).toBeInViewport();
     await expect(list.rows.first()).not.toBeInViewport();
     expect(await list.head.boundingBox(), 'the head stays where it was').toEqual(head);
+  });
+
+  test('gives the email the rest of the width of the table, and cuts it there', async ({ page, api }) => {
+    const long = `${'qwe.very.long.name.'.repeat(4)}x@gmail.com`;
+    const user: MockUser = { id: 1, email: long, role: 'MANAGER', createdAt: '2026-10-30T09:00:00.123456Z' };
+    api.respond('GET /users', usersPage([user]));
+    const users = new UsersPage(page);
+    await users.open();
+    const longBox = users.rowOf(long).locator('app-fit-email');
+    await expect(longBox.locator('[aria-hidden="true"]')).toContainText('…@gmail.com');
+
+    // Up to the end of its cell, less than a character short.
+    const gap = await longBox.evaluate((box) => {
+      const cell = box.parentElement!.getBoundingClientRect();
+      const padding = parseFloat(getComputedStyle(box.parentElement!).paddingRight);
+      return cell.right - padding - box.lastElementChild!.getBoundingClientRect().right;
+    });
+    expect(gap, 'the space left at the end of the cell').toBeGreaterThanOrEqual(0);
+    expect(gap, 'the space left at the end of the cell').toBeLessThan(12);
   });
 });

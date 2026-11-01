@@ -3,19 +3,11 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map, switchMap, tap } from 'rxjs';
 import { failureMessage } from '../api/api-error';
-import { shortenEmail } from '../header/shorten-email';
 import { PageBarComponent } from '../layout/page-bar.component';
+import { FitEmailComponent } from './fit-email.component';
 import { UserPage } from './users.model';
 import { UsersApiService } from './users-api.service';
 import { PAGE_SIZES, UsersQuery, parseUsersQuery } from './users-query';
-
-/** A row of the table: the email cut as in the header, the full one as its hint when cut. */
-interface UserRow {
-  id: number;
-  email: string;
-  fullEmail: string | null;
-  role: string;
-}
 
 const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage users.' };
 
@@ -27,6 +19,9 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
  * so that a reload and a link keep them; a change replaces the entry of the history rather than
  * adding one, so that *Back* leaves the list.
  *
+ * The email takes the rest of the width of the table and is cut only when it does not fit
+ * ({@link FitEmailComponent}); the id and the role are as wide as their texts.
+ *
  * The table is as high as its rows, up to the bottom of the window: then it scrolls inside its box,
  * under a fixed head, while the pager below stays in view. While the next page loads, the rows of
  * the previous one stay, so that the table does not jump.
@@ -35,7 +30,7 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
   selector: 'app-users-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageBarComponent],
+  imports: [PageBarComponent, FitEmailComponent],
   // `fills-window`: see `styles.css`, the page takes the rest of the window.
   host: { class: 'fills-window' },
   template: `
@@ -60,7 +55,7 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
               @for (row of rows(); track row.id) {
                 <tr>
                   <td class="id">{{ row.id }}</td>
-                  <td class="email" [attr.title]="row.fullEmail">{{ row.email }}</td>
+                  <td class="email"><app-fit-email [email]="row.email" /></td>
                   <td>{{ row.role }}</td>
                 </tr>
               } @empty {
@@ -172,8 +167,13 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
         font-weight: 600;
       }
       .id {
-        width: 1%;
         text-align: right;
+      }
+      /* The rest of the width, whatever the length of the email: the cell adds nothing to the
+         widths that the table needs, its text is cut instead. */
+      .email {
+        width: 100%;
+        max-width: 0;
       }
       .note {
         margin: 0;
@@ -238,13 +238,7 @@ export class UsersPageComponent {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
 
-  readonly rows = computed<UserRow[] | null>(
-    () =>
-      this.loaded()?.items.map((user) => {
-        const email = shortenEmail(user.email);
-        return { id: user.id, email, fullEmail: email === user.email ? null : user.email, role: user.role };
-      }) ?? null,
-  );
+  readonly rows = computed(() => this.loaded()?.items ?? null);
 
   readonly total = computed(() => this.loaded()?.totalElements ?? null);
 
