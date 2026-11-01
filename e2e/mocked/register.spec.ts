@@ -62,7 +62,7 @@ test.describe('Sign-up page', () => {
       'must contain a digit',
       'must contain an upper case letter',
     ]);
-    await expect(registerPage.password).toHaveClass(/invalid/);
+    await expect(registerPage.password).toHaveAttribute('aria-invalid', 'true');
     await expect(registerPage.alert).toBeHidden();
   });
 
@@ -80,9 +80,9 @@ test.describe('Sign-up page', () => {
 
     await expect(loginPage.alert).toBeHidden();
     await expect(loginPage.fieldErrors('email')).toHaveCount(0);
-    await expect(loginPage.email).not.toHaveClass('invalid');
+    await expect(loginPage.email).toHaveAttribute('aria-invalid', 'false');
     await expect(loginPage.fieldErrors('password')).toHaveCount(0);
-    await expect(loginPage.password).not.toHaveClass('invalid');
+    await expect(loginPage.password).toHaveAttribute('aria-invalid', 'false');
   });
 
   test('sends one request while the first one is pending', async ({ page, api }) => {

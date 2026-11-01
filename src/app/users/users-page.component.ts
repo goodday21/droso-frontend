@@ -3,27 +3,16 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TuiTable, TuiTablePagination, TuiTablePaginationEvent } from '@taiga-ui/addon-table';
 import { TuiLoader, TuiNotification } from '@taiga-ui/core';
-import { TuiBadge } from '@taiga-ui/kit';
 import { map, switchMap, tap } from 'rxjs';
 import { failureMessage } from '../api/api-error';
-import { Role } from '../auth/auth.model';
 import { PageBarComponent } from '../layout/page-bar.component';
+import { RoleBadgeComponent } from '../layout/role-badge.component';
 import { FitEmailComponent } from './fit-email.component';
 import { UserPage } from './users.model';
 import { UsersApiService } from './users-api.service';
 import { PAGE_SIZES, UsersQuery, parseUsersQuery } from './users-query';
 
 const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage users.' };
-
-/**
- * The badge of each role, an appearance of the theme of Taiga UI: the administrator a solid red one,
- * the manager a solid blue one (the accent of the theme), with white text; the user a grey one.
- */
-const ROLE_APPEARANCE: Record<Role, string> = {
-  ADMIN: 'primary-destructive',
-  MANAGER: 'primary',
-  USER: 'neutral',
-};
 
 /**
  * The list of the users, a page at a time (`GET /api/v1/users`); for the administrators, who have
@@ -36,7 +25,8 @@ const ROLE_APPEARANCE: Record<Role, string> = {
  * sizes, and the previous and the next page.
  *
  * The email takes the rest of the width of the table and is cut only when it does not fit
- * ({@link FitEmailComponent}); the id and the role, a badge, are as wide as their texts.
+ * ({@link FitEmailComponent}); the id and the role, the badge of its colour
+ * ({@link RoleBadgeComponent}), are as wide as their texts.
  *
  * The table is as high as its rows, up to the bottom of the window: then it scrolls inside its box,
  * under a fixed head, while the pager below stays in view. While the next page loads, the rows of
@@ -46,7 +36,15 @@ const ROLE_APPEARANCE: Record<Role, string> = {
   selector: 'app-users-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageBarComponent, FitEmailComponent, TuiTable, TuiTablePagination, TuiBadge, TuiLoader, TuiNotification],
+  imports: [
+    PageBarComponent,
+    FitEmailComponent,
+    RoleBadgeComponent,
+    TuiTable,
+    TuiTablePagination,
+    TuiLoader,
+    TuiNotification,
+  ],
   // `fills-window`: see `styles.css`, the page takes the rest of the window.
   host: { class: 'fills-window' },
   template: `
@@ -74,7 +72,7 @@ const ROLE_APPEARANCE: Record<Role, string> = {
                     <td tuiTd class="id">{{ row.id }}</td>
                     <td tuiTd class="email"><app-fit-email [email]="row.email" /></td>
                     <td tuiTd>
-                      <span tuiBadge size="m" [appearance]="appearance(row.role)">{{ row.role }}</span>
+                      <app-role-badge [role]="row.role" />
                     </td>
                   </tr>
                 } @empty {
@@ -198,10 +196,6 @@ export class UsersPageComponent {
           this.error.set(failureMessage(result.failure, FAILURE_MESSAGES));
         }
       });
-  }
-
-  protected appearance(role: Role): string {
-    return ROLE_APPEARANCE[role];
   }
 
   /**

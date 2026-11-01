@@ -12,6 +12,8 @@ export abstract class AuthFormPage {
   readonly alert: Locator;
   /** The link under the form to the other page. */
   readonly switchLink: Locator;
+  /** The eye of Taiga UI in the field of the password, which shows the password or hides it. */
+  readonly passwordToggle: Locator;
 
   protected constructor(
     readonly page: Page,
@@ -24,6 +26,7 @@ export abstract class AuthFormPage {
     this.submit = this.form.locator('button[type="submit"]');
     this.alert = page.getByRole('alert');
     this.switchLink = page.locator('.switch').getByRole('link');
+    this.passwordToggle = page.locator('tui-textfield', { has: this.password }).locator('tui-icon[tuiPassword]');
   }
 
   async open(): Promise<void> {

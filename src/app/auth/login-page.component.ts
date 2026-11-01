@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TuiButton, TuiIcon, TuiInput, TuiLink, TuiNotification } from '@taiga-ui/core';
+import { TuiPassword } from '@taiga-ui/kit';
+import { PageBarComponent } from '../layout/page-bar.component';
 import { AuthApiService } from './auth-api.service';
 import { AuthSessionService } from './auth-session.service';
 import { EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH } from './auth.model';
@@ -18,27 +21,38 @@ import { fieldMessages, showFailure } from './form-errors';
   selector: 'app-login-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    PageBarComponent,
+    TuiButton,
+    TuiIcon,
+    TuiInput,
+    TuiLink,
+    TuiNotification,
+    TuiPassword,
+  ],
   styleUrl: './auth-form.css',
   template: `
-    <h1>Sign in</h1>
+    <app-page-bar title="Sign in" [back]="false" />
     <section class="card">
       <form [formGroup]="form" (ngSubmit)="submit()">
         @if (registered) {
-          <p class="alert alert--success" role="status">Registration complete. Please sign in.</p>
+          <div tuiNotification appearance="positive" size="s" role="status">Registration complete. Please sign in.</div>
         }
         @if (expired) {
-          <p class="alert alert--error" role="status">Your session has ended. Please sign in again.</p>
+          <div tuiNotification appearance="warning" size="s" role="status">Your session has ended. Please sign in again.</div>
         }
         @if (formError(); as message) {
-          <p class="alert alert--error" role="alert">{{ message }}</p>
+          <div tuiNotification appearance="negative" size="s" role="alert">{{ message }}</div>
         }
 
         @let emailErrors = messages('email');
         <div class="field">
-          <label for="email">Email</label>
-          <input id="email" type="email" formControlName="email" autocomplete="email"
-                 [class.invalid]="emailErrors.length > 0" />
+          <tui-textfield [tuiTextfieldCleaner]="false" [invalid]="emailErrors.length > 0">
+            <label tuiLabel for="email">Email</label>
+            <input tuiInput id="email" type="email" formControlName="email" autocomplete="email" />
+          </tui-textfield>
           @if (emailErrors.length > 0) {
             <ul class="errors" data-field="email">
               @for (message of emailErrors; track message) {
@@ -50,9 +64,11 @@ import { fieldMessages, showFailure } from './form-errors';
 
         @let passwordErrors = messages('password');
         <div class="field">
-          <label for="password">Password</label>
-          <input id="password" type="password" formControlName="password" autocomplete="current-password"
-                 [class.invalid]="passwordErrors.length > 0" />
+          <tui-textfield [tuiTextfieldCleaner]="false" [invalid]="passwordErrors.length > 0">
+            <label tuiLabel for="password">Password</label>
+            <input tuiInput id="password" type="password" formControlName="password" autocomplete="current-password" />
+            <tui-icon tuiPassword />
+          </tui-textfield>
           @if (passwordErrors.length > 0) {
             <ul class="errors" data-field="password">
               @for (message of passwordErrors; track message) {
@@ -62,11 +78,11 @@ import { fieldMessages, showFailure } from './form-errors';
           }
         </div>
 
-        <button type="submit" [disabled]="submitting()">
+        <button tuiButton type="submit" size="m" [disabled]="submitting()">
           {{ submitting() ? 'Signing in…' : 'Sign in' }}
         </button>
       </form>
-      <p class="switch">No account? <a routerLink="/register">Sign up</a></p>
+      <p class="switch">No account? <a tuiLink routerLink="/register">Sign up</a></p>
     </section>
   `,
 })

@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TuiLink } from '@taiga-ui/core';
+import { PageBarComponent } from '../layout/page-bar.component';
 
 /**
  * Shown for every path that is not a page of the application.
@@ -8,10 +10,19 @@ import { RouterLink } from '@angular/router';
   selector: 'app-not-found',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [RouterLink, PageBarComponent, TuiLink],
   template: `
-    <h1>Page not found</h1>
-    <p>This page does not exist. <a routerLink="/">Go to the service health</a>.</p>
+    <app-page-bar title="Page not found" [back]="false" />
+    <p class="text">This page does not exist. <a tuiLink routerLink="/">Go to the service health</a>.</p>
   `,
+  styles: [
+    `
+      .text {
+        margin: 0;
+        font: var(--tui-typography-body-l);
+        color: var(--tui-text-secondary);
+      }
+    `,
+  ],
 })
 export class NotFoundComponent {}

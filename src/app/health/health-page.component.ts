@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { PageBarComponent } from '../layout/page-bar.component';
 import { HealthPanelComponent } from './health-panel.component';
 
 /**
@@ -8,9 +9,9 @@ import { HealthPanelComponent } from './health-panel.component';
   selector: 'app-health-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [HealthPanelComponent],
+  imports: [PageBarComponent, HealthPanelComponent],
   template: `
-    <h1>Service health</h1>
+    <app-page-bar title="Service health" [back]="false" />
     <app-health-panel />
   `,
 })

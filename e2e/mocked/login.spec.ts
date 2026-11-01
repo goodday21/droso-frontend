@@ -16,6 +16,18 @@ test.describe('Sign-in page', () => {
     await login.open();
   });
 
+  test('shows the password on a click of the eye, and hides it on the next one', async () => {
+    await login.password.fill(PASSWORD);
+    await expect(login.password).toHaveAttribute('type', 'password');
+
+    await login.passwordToggle.click();
+    await expect(login.password).toHaveAttribute('type', 'text');
+    await expect(login.password).toHaveValue(PASSWORD);
+
+    await login.passwordToggle.click();
+    await expect(login.password).toHaveAttribute('type', 'password');
+  });
+
   test('requires both fields and sends nothing', async ({ api }) => {
     await login.submit.click();
 

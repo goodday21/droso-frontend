@@ -1,18 +1,28 @@
-import { signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { provideTaiga } from '@taiga-ui/core';
+import { TuiRoot, provideTaiga } from '@taiga-ui/core';
 import { ApiResult } from '../api/api-error';
 import { CurrentUserService, CurrentUserState } from '../auth/current-user.service';
 import { RefreshTokenService } from '../auth/refresh-token.service';
 import { UserProfilePageComponent } from './user-profile-page.component';
 
+/** The page in the root of Taiga UI, where its dialog is shown, as in the application. */
+@Component({
+  standalone: true,
+  imports: [TuiRoot, UserProfilePageComponent],
+  template: `<tui-root><app-user-profile-page /></tui-root>`,
+})
+class HostComponent {}
+
 describe('UserProfilePageComponent', () => {
   // When `/me` is called is the business of `CurrentUserService`, and the call of the sign-out
-  // that of `RefreshTokenService`; here only what the page shows and asks for.
+  // that of `RefreshTokenService`; the colour of the role that of `RoleBadgeComponent`. The dialog
+  // is the one of Taiga UI: Escape and a click outside it, which it handles itself, are checked by
+  // the browser tests. Here what the page shows and asks for.
   const state = signal<CurrentUserState>({ status: 'none' });
   let logoutAll: jasmine.Spy<() => Promise<ApiResult<null>>>;
-  let fixture: ComponentFixture<UserProfilePageComponent>;
+  let fixture: ComponentFixture<HostComponent>;
   let navigateByUrl: jasmine.Spy;
 
   beforeEach(() => {
@@ -33,12 +43,18 @@ describe('UserProfilePageComponent', () => {
       ],
     });
     navigateByUrl = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
-    fixture = TestBed.createComponent(UserProfilePageComponent);
+    fixture = TestBed.createComponent(HostComponent);
     fixture.detectChanges();
   });
 
+  afterEach(() => fixture.destroy());
+
   function element(): HTMLElement {
     return fixture.nativeElement as HTMLElement;
+  }
+
+  function page(): HTMLElement {
+    return element().querySelector('app-user-profile-page')!;
   }
 
   function button(name: string): HTMLButtonElement {
@@ -50,7 +66,7 @@ describe('UserProfilePageComponent', () => {
   }
 
   function rows(): string[][] {
-    return Array.from(element().querySelectorAll('table tr'), (row) =>
+    return Array.from(page().querySelectorAll('table tr'), (row) =>
       Array.from(row.children, (cell) => cell.textContent!.trim()),
     );
   }
@@ -64,28 +80,32 @@ describe('UserProfilePageComponent', () => {
     fixture.detectChanges();
   }
 
-  /** Lets the promise of a sign-out settle. */
+  /** Lets the promises settle and the dialog play its animation, in or out. */
   async function settle(): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve));
-    fixture.detectChanges();
+    for (let wait = 0; wait < 20; wait++) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      fixture.detectChanges();
+    }
+    await fixture.whenStable();
   }
 
   // Sign out is in the header of the application (`AppComponent`), not on the page.
   // What Back does is the business of `PageBarComponent`.
   it('shows Back and its title in its bar, without a sign-out', () => {
-    const bar = element().querySelector('app-page-bar')!;
+    const bar = page().querySelector('app-page-bar')!;
 
     expect(Array.from(bar.children, (item) => item.textContent!.trim())).toEqual(['Back', 'User profile']);
-    expect(Array.from(element().querySelectorAll('button'), (item) => item.textContent!.trim())).not.toContain(
+    expect(Array.from(page().querySelectorAll('button'), (item) => item.textContent!.trim())).not.toContain(
       'Sign out',
     );
   });
 
-  it('shows the email and the role of the user in a table', () => {
+  it('shows the email and the role of the user in a table, the role as a badge', () => {
     expect(rows()).toEqual([
       ['Email:', 'qwe@gmail.com'],
       ['Role:', 'MANAGER'],
     ]);
+    expect(page().querySelector('table app-role-badge')).not.toBeNull();
   });
 
   it('shows that the user is loading', () => {
@@ -102,43 +122,28 @@ describe('UserProfilePageComponent', () => {
     state.set({ status: 'failed' });
     fixture.detectChanges();
 
-    expect(element().querySelector('table')).toBeNull();
-    expect(element().querySelector('[role="alert"]')!.textContent!.trim()).toBe('Could not load the profile.');
+    expect(page().querySelector('table')).toBeNull();
+    expect(page().querySelector('[role="alert"]')!.textContent!.trim()).toBe('Could not load the profile.');
     expect(button('Logout all sessions')).toBeTruthy();
   });
 
   describe('Logout all sessions', () => {
     beforeEach(async () => {
       click(button('Logout all sessions'));
-      await fixture.whenStable();
+      await settle();
     });
 
-    it('asks first, with the focus on Cancel', () => {
+    it('asks first in a dialog, with the focus on Cancel', () => {
       expect(dialog()!.querySelector('h2')!.textContent!.trim()).toBe('Logout all sessions?');
+      expect(dialog()!.textContent).toContain('You will be signed out on every device, this one included.');
       expect(document.activeElement).toBe(button('Cancel'));
       expect(logoutAll).not.toHaveBeenCalled();
     });
 
-    it('closes without a call on Cancel', () => {
+    it('closes without a call on Cancel', async () => {
       click(button('Cancel'));
+      await settle();
 
-      expect(dialog()).toBeNull();
-      expect(logoutAll).not.toHaveBeenCalled();
-    });
-
-    it('closes without a call on Escape', () => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-      fixture.detectChanges();
-
-      expect(dialog()).toBeNull();
-      expect(logoutAll).not.toHaveBeenCalled();
-    });
-
-    it('closes without a call on a click outside the dialog, but not on one inside it', () => {
-      click(dialog()!);
-      expect(dialog()).withContext('a click inside').not.toBeNull();
-
-      click(element().querySelector<HTMLElement>('.backdrop')!);
       expect(dialog()).toBeNull();
       expect(logoutAll).not.toHaveBeenCalled();
     });
@@ -152,10 +157,6 @@ describe('UserProfilePageComponent', () => {
       expect(logoutAll).toHaveBeenCalledTimes(1);
       expect(button('Signing out…').disabled).toBeTrue();
       expect(button('Cancel').disabled).toBeTrue();
-      click(element().querySelector<HTMLElement>('.backdrop')!);
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-      fixture.detectChanges();
-      expect(dialog()).withContext('while the call is pending').not.toBeNull();
 
       answer({ ok: true, body: null });
       await settle();
@@ -182,8 +183,10 @@ describe('UserProfilePageComponent', () => {
       click(button('Yes'));
       await settle();
       click(button('Cancel'));
+      await settle();
 
       click(button('Logout all sessions'));
+      await settle();
 
       expect(dialog()!.querySelector('[role="alert"]')).toBeNull();
     });

@@ -1,29 +1,30 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideTaiga } from '@taiga-ui/core';
 import { Role } from '../auth/auth.model';
+import { RoleBadgeComponent } from '../layout/role-badge.component';
 import { HeaderRoleComponent } from './header-role.component';
 
 describe('HeaderRoleComponent', () => {
-  function render(role: Role | null): HTMLElement {
+  // The text and the colour of the badge are the business of `RoleBadgeComponent`.
+  function render(role: Role | null) {
     TestBed.configureTestingModule({ providers: [provideTaiga()] });
     const fixture = TestBed.createComponent(HeaderRoleComponent);
     fixture.componentRef.setInput('role', role);
     fixture.detectChanges();
-    return fixture.nativeElement as HTMLElement;
+    return fixture;
   }
 
-  for (const role of ['USER', 'MANAGER', 'ADMIN'] as const) {
-    it(`shows the role ${role} as a badge`, () => {
-      const badge = render(role).querySelector('[tuiBadge]');
+  it('gives the role to the badge of its colour', () => {
+    const badge = render('MANAGER').debugElement.query(By.directive(RoleBadgeComponent));
 
-      expect(badge?.textContent!.trim()).toBe(role);
-    });
-  }
+    expect((badge.componentInstance as RoleBadgeComponent).role()).toBe('MANAGER');
+  });
 
   it('stays empty, without a badge, until the role is known', () => {
-    const element = render(null);
+    const fixture = render(null);
 
-    expect(element.textContent!.trim()).toBe('');
-    expect(element.querySelector('[tuiBadge]')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent!.trim()).toBe('');
+    expect(fixture.debugElement.query(By.directive(RoleBadgeComponent))).toBeNull();
   });
 });

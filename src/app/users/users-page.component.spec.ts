@@ -11,8 +11,9 @@ import { UserPage } from './users.model';
 import { UsersPageComponent } from './users-page.component';
 
 describe('UsersPageComponent', () => {
-  // How the email is cut is the business of `FitEmailComponent`, how the query is read that of
-  // `parseUsersQuery`, Back that of `PageBarComponent`. Here what the page asks and shows. The menu
+  // How the email is cut is the business of `FitEmailComponent`, the colour of the role that of
+  // `RoleBadgeComponent`, how the query is read that of `parseUsersQuery`, Back that of
+  // `PageBarComponent`. Here what the page asks and shows. The menu
   // of the sizes of the pager opens in an overlay: here the page gets the size from the event of the
   // pager, the menu itself is clicked by the browser tests.
   let harness: RouterTestingHarness;
@@ -119,22 +120,6 @@ describe('UsersPageComponent', () => {
     ]);
     expect(summary()).toEqual(['Pages 1', 'Lines per page 1–2 of 2']);
     expect(pager().size()).toBe(20);
-  });
-
-  // The colours themselves are those of the appearances of the theme of Taiga UI.
-  it('shows the role as a badge: the administrator red, the manager blue, the user grey', async () => {
-    await open('/users');
-    answer(0, 20, pageOf([user(1), { ...user(2), role: 'MANAGER' }, user(3)], 0, 20, 3));
-
-    const badges = Array.from(element().querySelectorAll('tbody [tuiBadge]'), (badge) => [
-      badge.textContent!.trim(),
-      badge.getAttribute('data-appearance'),
-    ]);
-    expect(badges).toEqual([
-      ['ADMIN', 'primary-destructive'],
-      ['MANAGER', 'primary'],
-      ['USER', 'neutral'],
-    ]);
   });
 
   // How it is cut to the width is the business of `FitEmailComponent`; the header keeps its 20.

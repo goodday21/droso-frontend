@@ -4,11 +4,11 @@ import { expect, test } from '../support/fixtures';
 import { ACCESS_TOKEN, currentUser, loggedOut } from '../support/responses/auth';
 import { readSession, seedSession } from '../support/session';
 
-// What the page shows for each answer, and the dialog's ways out, are checked by the spec of the
-// page; that a guest is sent to the sign-in, by `app.routes.spec.ts`; the mark of the open tab, by
-// `app.component.spec.ts`; Back of a page opened directly (the bar is shared), by `users.spec.ts`.
-// Here the navigation, the history of the tab, the place of the dialog on the screen and the tabs
-// of the browser.
+// What the page shows for each answer, Cancel and Yes of the dialog, are checked by the spec of
+// the page; that a guest is sent to the sign-in, by `app.routes.spec.ts`; the mark of the open tab,
+// by `app.component.spec.ts`; Back of a page opened directly (the bar is shared), by `users.spec.ts`.
+// Here the navigation, the history of the tab, the ways out of the dialog of Taiga UI that it
+// handles itself (Escape, a click outside it) and the tabs of the browser.
 
 test.describe('User profile', () => {
   test.beforeEach(async ({ page, api }) => {
@@ -45,6 +45,28 @@ test.describe('User profile', () => {
     // The corner of the page, far from the dialog in the middle.
     await page.mouse.click(5, 5);
 
+    await expect(profile.dialog).toBeHidden();
+  });
+
+  test('closes the dialog on Escape, but neither way while the call is pending', async ({ page, api }) => {
+    const release = api.hold('POST /auth/logout-all', loggedOut());
+    const profile = new UserProfilePage(page);
+    await profile.open();
+    await profile.logoutAll.click();
+    await expect(profile.dialog).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(profile.dialog).toBeHidden();
+
+    await profile.logoutAll.click();
+    await profile.confirm.click();
+    await expect(profile.dialog.getByRole('button', { name: 'Signing out…' })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await page.mouse.click(5, 5);
+    await expect(profile.dialog, 'while the call is pending').toBeVisible();
+
+    release();
+    await expect(page).toHaveURL('/login');
     await expect(profile.dialog).toBeHidden();
   });
 
