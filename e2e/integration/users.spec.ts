@@ -48,6 +48,7 @@ test.describe('The list of users against the backend', () => {
     await expect(row).toHaveCount(1);
     await expect(row.locator('td').nth(2)).toHaveText('ADMIN');
     await expect(list.deleteButton(ADMIN.email), 'the administrator cannot delete themselves').toHaveCount(0);
+    await expect(list.updateRoleButton(ADMIN.email), 'nor change their own role').toHaveCount(0);
   });
 
   test('lists the newest first, and the emails in the order of the backend on a click', async ({ page, request }) => {
@@ -91,6 +92,26 @@ test.describe('The list of users against the backend', () => {
     await expect(page).toHaveURL('/users?size=100');
     const login = await request.post('/api/v1/auth/login', { data: { email, password: PASSWORD } });
     expect(login.status()).toBe(401);
+  });
+
+  test('changes the role of a user after choosing it in a dialog', async ({ page, request }) => {
+    const email = uniqueEmail();
+    await createUser(request, email);
+    await signIn(page, ADMIN.email, ADMIN.password);
+    const list = new UsersPage(page);
+    // The newest first: the user is on the first page, whatever the earlier runs left.
+    await list.open('?size=100');
+    await list.loaded();
+    await expect(list.rowOf(email).locator('td').nth(2)).toHaveText('USER');
+
+    await list.updateRoleButton(email).click();
+    await expect(list.roleSelect).toHaveValue('USER');
+    await list.chooseRole('MANAGER');
+    await list.update.click();
+
+    await expect(list.dialog).toBeHidden();
+    await list.loaded();
+    await expect(list.rowOf(email).locator('td').nth(2)).toHaveText('MANAGER');
   });
 
   test('gives a user without the permission no tab, and the refusal of the backend', async ({ page, request }) => {

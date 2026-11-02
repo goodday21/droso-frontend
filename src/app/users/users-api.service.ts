@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
 import { ApiResult, toApiFailure } from '../api/api-error';
+import { Role, UserResponse } from '../auth/auth.model';
 import { UserPage } from './users.model';
 import { UsersSort } from './users-query';
 
@@ -34,6 +35,18 @@ export class UsersApiService {
     return this.http.delete<void>(`${USERS_ENDPOINT}/${id}`).pipe(
       map((): ApiResult<null> => ({ ok: true, body: null })),
       catchError((error: HttpErrorResponse) => of<ApiResult<null>>({ ok: false, failure: toApiFailure(error) })),
+    );
+  }
+
+  /**
+   * Gives the user another role (`PUT /api/v1/users/{id}/role`), answered with the user as in the
+   * list. The user stays logged in, the new permissions apply from their next request. Demoting the
+   * last administrator is a 409 `LAST_ADMIN`, a user deleted already a 404 `RESOURCE_NOT_FOUND`.
+   */
+  updateRole(id: number, role: Role): Observable<ApiResult<UserResponse>> {
+    return this.http.put<UserResponse>(`${USERS_ENDPOINT}/${id}/role`, { role }).pipe(
+      map((body): ApiResult<UserResponse> => ({ ok: true, body })),
+      catchError((error: HttpErrorResponse) => of<ApiResult<UserResponse>>({ ok: false, failure: toApiFailure(error) })),
     );
   }
 }

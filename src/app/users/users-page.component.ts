@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TuiTable, TuiTablePagination, TuiTablePaginationEvent } from '@taiga-ui/addon-table';
 import { TuiAutoFocus } from '@taiga-ui/cdk';
-import { TuiButton, TuiDialog, TuiDialogOptions, TuiIcon, TuiLoader, TuiNotification } from '@taiga-ui/core';
+import { TuiButton, TuiDataList, TuiDialog, TuiDialogOptions, TuiIcon, TuiLoader, TuiNotification } from '@taiga-ui/core';
+import { TuiChevron, TuiSelect } from '@taiga-ui/kit';
 import { Subject, map, merge, switchMap, tap } from 'rxjs';
 import { ApiFailure, failureMessage } from '../api/api-error';
-import { UserResponse } from '../auth/auth.model';
+import { ROLES, Role, UserResponse } from '../auth/auth.model';
 import { CurrentUserService } from '../auth/current-user.service';
 import { shortenEmail } from '../header/shorten-email';
 import { PageBarComponent } from '../layout/page-bar.component';
@@ -21,6 +23,12 @@ const FAILURE_MESSAGES = { FORBIDDEN: 'You do not have permission to manage user
 const DELETE_FAILURE_MESSAGES = {
   ...FAILURE_MESSAGES,
   LAST_ADMIN: 'The last administrator cannot be deleted.',
+};
+
+const UPDATE_ROLE_FAILURE_MESSAGES = {
+  ...FAILURE_MESSAGES,
+  LAST_ADMIN: 'The last administrator cannot be demoted.',
+  RESOURCE_NOT_FOUND: 'User has already been deleted. Please reload the page',
 };
 
 /** The columns of the table, each sorted by the backend on a click of its head. */
@@ -54,14 +62,22 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
  * under a fixed head, while the pager below stays in view. While the next page loads, the rows of
  * the previous one stay under a loader, so that the table does not jump.
  *
- * The last column, without a head and not sorted by, has a button that deletes the user of the row;
- * not in the row of the signed-in user, who cannot delete themselves, and in no row until `/me` has
- * told who that is. The deletion asks first in a dialog of Taiga UI, like *Logout all sessions* of
+ * The last two columns, without a head and not sorted by, have a button that changes the role of the
+ * user of the row and one that deletes the user; not in the row of the signed-in user, who can do
+ * neither to themselves, and in no row until `/me` has told who that is. The deletion asks first in a dialog of Taiga UI, like *Logout all sessions* of
  * the profile: the email in its title cut to 20 characters ({@link shortenEmail}), the focus on
  * Cancel; it closes on Cancel, Escape or a click outside it, but not while the call is pending. Once
  * the backend has deleted the user (`DELETE /api/v1/users/{id}`), or answers that someone else has
  * done it already (404), the dialog closes and the page of the URL is asked again; any other failure
  * is shown in the dialog, which stays open.
+ *
+ * The change of the role is a dialog of the same kind: the email cut in its title, a menu of the
+ * roles instead of the text, Cancel (focused) and Update. The menu shows the role of the user and
+ * offers the two others; Update is disabled until another role is chosen. Once the backend has
+ * changed the role (`PUT /api/v1/users/{id}/role`), the dialog closes and the page of the URL is
+ * asked again, since the row may move in the order by the role. Any failure is shown in the dialog,
+ * which stays open: a user deleted meanwhile (404) too, unlike the deletion, since the role that
+ * was asked has not been given.
  */
 @Component({
   selector: 'app-users-page',
@@ -73,9 +89,13 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
     RoleBadgeComponent,
     TuiTable,
     TuiTablePagination,
+    FormsModule,
     TuiAutoFocus,
     TuiButton,
+    TuiChevron,
+    TuiDataList,
     TuiDialog,
+    TuiSelect,
     TuiIcon,
     TuiLoader,
     TuiNotification,
@@ -110,7 +130,8 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
                       </button>
                     </th>
                   }
-                  <th tuiTh class="actions" [resizable]="false" aria-label="Actions"></th>
+                  <th tuiTh class="actions" [resizable]="false" aria-label="Update role"></th>
+                <th tuiTh class="actions" [resizable]="false" aria-label="Delete"></th>
                 </tr>
               </thead>
               <tbody tuiTbody>
@@ -121,8 +142,22 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
                     <td tuiTd>
                       <app-role-badge [role]="row.role" />
                     </td>
-                    <td tuiTd class="actions">
-                      @if (canDelete(row)) {
+                    <td tuiTd class="actions update">
+                      @if (canManage(row)) {
+                        <button
+                          tuiIconButton
+                          type="button"
+                          appearance="flat-grayscale"
+                          size="xs"
+                          iconStart="@tui.pen"
+                          title="Update role"
+                          [attr.aria-label]="'Update role of user ' + row.email"
+                          (click)="askUpdateRole(row)"
+                        ></button>
+                      }
+                    </td>
+                    <td tuiTd class="actions delete">
+                      @if (canManage(row)) {
                         <button
                           tuiIconButton
                           type="button"
@@ -138,7 +173,7 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
                   </tr>
                 } @empty {
                   <tr>
-                    <td tuiTd colspan="4" class="note">{{ total() === 0 ? 'No users.' : 'No users on this page.' }}</td>
+                    <td tuiTd colspan="5" class="note">{{ total() === 0 ? 'No users.' : 'No users on this page.' }}</td>
                   </tr>
                 }
               </tbody>
@@ -171,6 +206,35 @@ const COLUMNS: readonly { key: UsersSortKey; label: string }[] = [
           </button>
           <button tuiButton type="button" appearance="primary-destructive" size="m" (click)="confirmDelete()" [disabled]="deleting()">
             {{ deleting() ? 'Deleting…' : 'Yes' }}
+          </button>
+        </footer>
+      </div>
+    </ng-template>
+
+    <ng-template
+      [tuiDialog]="roleUpdate() !== null"
+      [tuiDialogOptions]="updateRoleOptions()"
+      (tuiDialogChange)="onUpdateRoleDialogChange($event)"
+    >
+      <div class="dialog">
+        <tui-textfield tuiChevron tuiTextfieldSize="m" [tuiTextfieldCleaner]="false">
+          <label tuiLabel>Role</label>
+          <input tuiSelect [ngModel]="selectedRole()" (ngModelChange)="selectedRole.set($event)" [disabled]="updatingRole()" />
+          <tui-data-list *tuiDropdown>
+            @for (role of otherRoles(); track role) {
+              <button tuiOption type="button" [value]="role">{{ role }}</button>
+            }
+          </tui-data-list>
+        </tui-textfield>
+        @if (updateRoleError(); as message) {
+          <div tuiNotification appearance="negative" size="s" role="alert">{{ message }}</div>
+        }
+        <footer>
+          <button tuiButton tuiAutoFocus type="button" appearance="secondary" size="m" (click)="cancelUpdateRole()" [disabled]="updatingRole()">
+            Cancel
+          </button>
+          <button tuiButton type="button" appearance="primary" size="m" (click)="confirmUpdateRole()" [disabled]="!canConfirmUpdateRole()">
+            {{ updatingRole() ? 'Updating…' : 'Update' }}
           </button>
         </footer>
       </div>
@@ -304,10 +368,27 @@ export class UsersPageComponent {
   readonly deleting = signal(false);
   readonly deleteError = signal<string | null>(null);
 
-  /** Asks the page of the URL again, e.g. once a user of it has been deleted. */
+  /** The user whose role the dialog changes; `null` while it is closed. */
+  readonly roleUpdate = signal<UserResponse | null>(null);
+  /** The role chosen in the menu of the dialog: at first the one of the user. */
+  readonly selectedRole = signal<Role | null>(null);
+  readonly updatingRole = signal(false);
+  readonly updateRoleError = signal<string | null>(null);
+
+  /** The roles that the menu offers: all but the one that the user has. */
+  protected readonly otherRoles = computed(() => ROLES.filter((role) => role !== this.roleUpdate()?.role));
+
+  /** Another role is chosen, and no call is pending. */
+  protected readonly canConfirmUpdateRole = computed(() => {
+    const role = this.selectedRole();
+    return !this.updatingRole() && role !== null && role !== this.roleUpdate()?.role;
+  });
+
+  /** Asks the page of the URL again, e.g. once a user of it has been deleted or given another role. */
   private readonly reloads = new Subject<void>();
 
   private readonly dismissible = toObservable(this.deleting).pipe(map((pending) => !pending));
+  private readonly updateRoleDismissible = toObservable(this.updatingRole).pipe(map((pending) => !pending));
 
   /** Read when the dialog opens. Escape and a click outside close it, except while the call is pending. */
   protected readonly deleteOptions = computed<Partial<TuiDialogOptions<void>>>(() => ({
@@ -315,6 +396,14 @@ export class UsersPageComponent {
     size: 's',
     closable: false,
     dismissible: this.dismissible,
+  }));
+
+  /** Read when the dialog opens, like {@link deleteOptions}. */
+  protected readonly updateRoleOptions = computed<Partial<TuiDialogOptions<void>>>(() => ({
+    label: `Update role of the user ${shortenEmail(this.roleUpdate()?.email ?? '')}`,
+    size: 's',
+    closable: false,
+    dismissible: this.updateRoleDismissible,
   }));
 
   constructor() {
@@ -362,7 +451,7 @@ export class UsersPageComponent {
   }
 
   /** Not the signed-in user, and nobody until it is known who that is. */
-  protected canDelete(row: UserResponse): boolean {
+  protected canManage(row: UserResponse): boolean {
     const me = this.currentUser.user();
     return me !== null && me.id !== row.id;
   }
@@ -403,6 +492,47 @@ export class UsersPageComponent {
           return;
         }
         this.deleteError.set(failureMessage(result.failure, DELETE_FAILURE_MESSAGES));
+      });
+  }
+
+  askUpdateRole(user: UserResponse): void {
+    this.updateRoleError.set(null);
+    this.selectedRole.set(user.role);
+    this.roleUpdate.set(user);
+  }
+
+  cancelUpdateRole(): void {
+    if (!this.updatingRole()) {
+      this.roleUpdate.set(null);
+    }
+  }
+
+  /** The dialog was closed by Taiga UI itself: on Escape or a click outside it. */
+  protected onUpdateRoleDialogChange(open: boolean): void {
+    if (!open) {
+      this.roleUpdate.set(null);
+    }
+  }
+
+  confirmUpdateRole(): void {
+    const user = this.roleUpdate();
+    const role = this.selectedRole();
+    if (user === null || role === null || !this.canConfirmUpdateRole()) {
+      return;
+    }
+    this.updateRoleError.set(null);
+    this.updatingRole.set(true);
+    this.api
+      .updateRole(user.id, role)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        this.updatingRole.set(false);
+        if (result.ok) {
+          this.roleUpdate.set(null);
+          this.reloads.next();
+          return;
+        }
+        this.updateRoleError.set(failureMessage(result.failure, UPDATE_ROLE_FAILURE_MESSAGES));
       });
   }
 

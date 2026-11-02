@@ -23,9 +23,12 @@ export class UsersPage {
   readonly sizes: Locator;
   readonly previous: Locator;
   readonly next: Locator;
-  /** The dialog that asks to delete a user, and its Yes. */
+  /** The dialog that asks to delete a user, and its Yes; or to change the role, and its Update. */
   readonly dialog: Locator;
   readonly confirm: Locator;
+  readonly update: Locator;
+  /** The menu of the roles in the dialog of the change of the role. */
+  readonly roleSelect: Locator;
 
   constructor(readonly page: Page) {
     this.heading = page.getByRole('heading', { level: 1 });
@@ -42,6 +45,8 @@ export class UsersPage {
     this.next = this.pager.getByRole('button', { name: 'Next' });
     this.dialog = page.getByRole('dialog');
     this.confirm = this.dialog.getByRole('button', { name: 'Yes' });
+    this.update = this.dialog.getByRole('button', { name: 'Update', exact: true });
+    this.roleSelect = this.dialog.locator('input[tuiSelect]');
   }
 
   async open(query = ''): Promise<void> {
@@ -81,6 +86,17 @@ export class UsersPage {
   /** The button in the last column that asks to delete the user; none in the row of the signed-in user. */
   deleteButton(email: string): Locator {
     return this.scroll.getByRole('button', { name: `Delete user ${email}`, exact: true });
+  }
+
+  /** The button left of the deletion that asks to change the role; none in the row of the signed-in user. */
+  updateRoleButton(email: string): Locator {
+    return this.scroll.getByRole('button', { name: `Update role of user ${email}`, exact: true });
+  }
+
+  /** Opens the menu of the roles in the dialog and chooses one. */
+  async chooseRole(role: 'ADMIN' | 'MANAGER' | 'USER'): Promise<void> {
+    await this.roleSelect.click();
+    await this.page.getByRole('option', { name: role, exact: true }).click();
   }
 
   /** The ids of the rows, from the top. */
