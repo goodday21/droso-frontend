@@ -6,6 +6,9 @@ export interface Credentials {
 
 export type Role = 'ADMIN' | 'MANAGER' | 'USER';
 
+/** Every role, in the order of the backend: alphabetically by the code. */
+export const ROLES: readonly Role[] = ['ADMIN', 'MANAGER', 'USER'];
+
 /** A user as returned by the backend; neither the password nor its hash is ever returned. */
 export interface UserResponse {
   id: number;

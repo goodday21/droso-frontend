@@ -393,7 +393,7 @@ describe('UsersPageComponent', () => {
 
     /** The buttons of the deletion in the rows, by what they read out. */
     function deletes(): string[] {
-      return Array.from(element().querySelectorAll('td.actions button'), (item) => item.getAttribute('aria-label')!);
+      return Array.from(element().querySelectorAll('td.delete button'), (item) => item.getAttribute('aria-label')!);
     }
 
     function deleteButton(email: string): HTMLButtonElement {
@@ -565,6 +565,249 @@ describe('UsersPageComponent', () => {
 
       expect(dialog()!.querySelector('h2')!.textContent!.trim()).toBe('Delete user user11@example.com?');
       expect(dialog()!.querySelector('[role="alert"]')).toBeNull();
+    });
+  });
+
+  describe('Update role', () => {
+    const me: CurrentUser = {
+      id: 1,
+      email: 'user1@example.com',
+      role: 'ADMIN',
+      permissions: ['USER_MANAGE'],
+      createdAt: '2026-10-27T10:15:30Z',
+    };
+    const order = 'sort=role&direction=asc';
+
+    beforeEach(() => state.set({ status: 'loaded', user: me }));
+
+    function dialog(): HTMLElement | null {
+      return (fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]');
+    }
+
+    /** A button of the footer of the dialog, by its text. */
+    function dialogButton(name: string): HTMLButtonElement {
+      const found = Array.from(dialog()!.querySelectorAll<HTMLButtonElement>('footer button')).find(
+        (item) => item.textContent!.trim() === name,
+      );
+      expect(found).withContext(`the button ${name}`).toBeDefined();
+      return found!;
+    }
+
+    /** The menu of the roles, whose value is the role chosen. */
+    function select(): HTMLInputElement {
+      return dialog()!.querySelector<HTMLInputElement>('input[tuiSelect]')!;
+    }
+
+    /** The roles of the open menu, which Taiga UI shows outside the dialog. */
+    function options(): HTMLButtonElement[] {
+      return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('[tuiOption]'));
+    }
+
+    /** The buttons of the change of the role in the rows, by what they read out. */
+    function updates(): string[] {
+      return Array.from(element().querySelectorAll('td.update button'), (item) => item.getAttribute('aria-label')!);
+    }
+
+    function updateButton(email: string): HTMLButtonElement {
+      return element().querySelector<HTMLButtonElement>(`td.update button[aria-label="Update role of user ${email}"]`)!;
+    }
+
+    /** Lets the dialog and the menu play their animations, in or out. */
+    async function settle(): Promise<void> {
+      for (let wait = 0; wait < 20; wait++) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        fixture.detectChanges();
+      }
+      await fixture.whenStable();
+    }
+
+    async function openMenu(): Promise<void> {
+      select().click();
+      await settle();
+    }
+
+    /** Opens the menu of the roles, unless it is open (a click would close it), and chooses one. */
+    async function choose(role: string): Promise<void> {
+      if (options().length === 0) {
+        await openMenu();
+      }
+      const option = options().find((item) => item.textContent!.trim() === role);
+      expect(option).withContext(`the option ${role}`).toBeDefined();
+      option!.click();
+      await settle();
+    }
+
+    /** Opens the second page of 10 rows by the role, and asks to change the role of `user12@example.com`. */
+    async function ask(): Promise<void> {
+      await open(`/users?page=2&size=10&${order}`);
+      answer(1, 10, pageOf([user(11), user(12)], 1, 10, 12), order);
+      updateButton('user12@example.com').click();
+      await settle();
+    }
+
+    function updateCall(id = 12): TestRequest {
+      const request = httpMock.expectOne(`/api/v1/users/${id}/role`);
+      expect(request.request.method).toBe('PUT');
+      return request;
+    }
+
+    it('offers to change the role of every user but the signed-in one, in a column left of the deletion', async () => {
+      await open('/users');
+      answer(0, 20, pageOf([user(3), user(2), user(1)], 0, 20, 3));
+
+      expect(updates()).toEqual(['Update role of user user3@example.com', 'Update role of user user2@example.com']);
+      const cells = Array.from(element().querySelector('tbody tr')!.children);
+      expect(cells.slice(-2).map((cell) => cell.className)).toEqual([
+        jasmine.stringMatching(/\bupdate\b/),
+        jasmine.stringMatching(/\bdelete\b/),
+      ]);
+      const heads = Array.from(element().querySelectorAll('thead th.actions'));
+      expect(heads.map((head) => head.textContent!.trim())).toEqual(['', '']);
+    });
+
+    it('offers to change the role of nobody until the signed-in user is known', async () => {
+      state.set({ status: 'loading' });
+      await open('/users');
+      answer(0, 20, pageOf([user(2), user(1)], 0, 20, 2));
+      expect(updates()).toEqual([]);
+
+      state.set({ status: 'loaded', user: me });
+      fixture.detectChanges();
+
+      expect(updates()).toEqual(['Update role of user user2@example.com']);
+    });
+
+    it('asks in a dialog: the email cut to 20 characters, the role of the user chosen, the focus on Cancel', async () => {
+      const long = 'qwe.very.long.name@gmail.com';
+      await open('/users');
+      answer(0, 20, pageOf([user(2, long)], 0, 20, 1));
+
+      updateButton(long).click();
+      await settle();
+
+      expect(dialog()!.querySelector('h2')!.textContent!.trim()).toBe(`Update role of the user ${shortenEmail(long)}`);
+      expect(select().value).toBe('USER');
+      expect(document.activeElement).toBe(dialogButton('Cancel'));
+      expect(dialogButton('Update').disabled).toBeTrue();
+    });
+
+    it('offers the two other roles, and enables Update once one is chosen', async () => {
+      await ask();
+
+      await openMenu();
+      expect(options().map((item) => item.textContent!.trim())).toEqual(['ADMIN', 'MANAGER']);
+
+      await choose('MANAGER');
+
+      expect(select().value).toBe('MANAGER');
+      expect(dialogButton('Update').disabled).toBeFalse();
+    });
+
+    it('closes without a call on Cancel', async () => {
+      await ask();
+      await choose('MANAGER');
+
+      dialogButton('Cancel').click();
+      await settle();
+
+      expect(dialog()).toBeNull();
+      httpMock.expectNone('/api/v1/users/12/role');
+    });
+
+    it('gives the role chosen on Update, then closes and asks the page of the URL again', async () => {
+      await ask();
+      await choose('MANAGER');
+
+      dialogButton('Update').click();
+      fixture.detectChanges();
+      const request = updateCall();
+      expect(request.request.body).toEqual({ role: 'MANAGER' });
+      expect(dialogButton('Updating…').disabled).toBeTrue();
+      expect(dialogButton('Cancel').disabled).toBeTrue();
+
+      request.flush({ ...user(12), role: 'MANAGER' });
+      await settle();
+
+      expect(dialog()).toBeNull();
+      expect(router.url).toBe(`/users?page=2&size=10&${order}`);
+      expect(element().querySelector('section')!.getAttribute('aria-busy')).toBe('true');
+      answer(1, 10, pageOf([user(11), { ...user(12), role: 'MANAGER' }], 1, 10, 12), order);
+      expect(rows()[2]).toEqual(['12', 'user12@example.com', 'MANAGER']);
+    });
+
+    const updateFailures: [string, (request: TestRequest) => void, string][] = [
+      [
+        '404 RESOURCE_NOT_FOUND',
+        (request) =>
+          request.flush(
+            { status: 404, code: 'RESOURCE_NOT_FOUND', message: 'Resource not found', fieldErrors: {} },
+            { status: 404, statusText: 'Not Found' },
+          ),
+        'User has already been deleted. Please reload the page',
+      ],
+      [
+        '403 FORBIDDEN',
+        (request) =>
+          request.flush(
+            { status: 403, code: 'FORBIDDEN', message: 'Access denied', fieldErrors: {} },
+            { status: 403, statusText: 'Forbidden' },
+          ),
+        'You do not have permission to manage users.',
+      ],
+      [
+        '409 LAST_ADMIN',
+        (request) =>
+          request.flush(
+            { status: 409, code: 'LAST_ADMIN', message: 'The last administrator cannot be removed', fieldErrors: {} },
+            { status: 409, statusText: 'Conflict' },
+          ),
+        'The last administrator cannot be demoted.',
+      ],
+      [
+        'a response that is not an ApiError',
+        (request) => request.flush('<html>Bad gateway</html>', { status: 502, statusText: 'Bad Gateway' }),
+        'Something went wrong. Please try again later.',
+      ],
+      [
+        'no response',
+        (request) => request.error(new ProgressEvent('error'), { status: 0 }),
+        'The service is not reachable. Check your connection and try again.',
+      ],
+    ];
+
+    for (const [name, fail, message] of updateFailures) {
+      it(`stays open with the error of ${name}, the role chosen and the list`, async () => {
+        await ask();
+        await choose('MANAGER');
+
+        dialogButton('Update').click();
+        fail(updateCall());
+        await settle();
+
+        expect(dialog()!.querySelector('[role="alert"]')!.textContent!.trim()).toBe(message);
+        expect(select().value).toBe('MANAGER');
+        expect(dialogButton('Update').disabled).toBeFalse();
+        expect(dialogButton('Cancel').disabled).toBeFalse();
+        expect(rows().slice(1).map((row) => row[0])).toEqual(['11', '12']);
+      });
+    }
+
+    it('forgets the error and the role chosen of the last attempt when asked again', async () => {
+      await ask();
+      await choose('MANAGER');
+      dialogButton('Update').click();
+      updateCall().error(new ProgressEvent('error'), { status: 0 });
+      await settle();
+      dialogButton('Cancel').click();
+      await settle();
+
+      updateButton('user11@example.com').click();
+      await settle();
+
+      expect(dialog()!.querySelector('h2')!.textContent!.trim()).toBe('Update role of the user user11@example.com');
+      expect(dialog()!.querySelector('[role="alert"]')).toBeNull();
+      expect(select().value).toBe('USER');
+      expect(dialogButton('Update').disabled).toBeTrue();
     });
   });
 });

@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ApiResult } from '../api/api-error';
+import { UserResponse } from '../auth/auth.model';
 import { UserPage } from './users.model';
 import { UsersApiService } from './users-api.service';
 
@@ -68,6 +69,29 @@ describe('UsersApiService', () => {
     service.delete(12).subscribe((value) => (result = value));
 
     httpMock.expectOne('/api/v1/users/12').flush(error, { status: 404, statusText: 'Not Found' });
+
+    expect(result).toEqual({ ok: false, failure: { kind: 'api', error } });
+  });
+
+  it('asks PUT /api/v1/users/{id}/role with the role, and reads the user', () => {
+    const body: UserResponse = { id: 12, email: 'user12@example.com', role: 'MANAGER', createdAt: '2026-10-30T09:00:00Z' };
+    let result: ApiResult<UserResponse> | undefined;
+    service.updateRole(12, 'MANAGER').subscribe((value) => (result = value));
+
+    const request = httpMock.expectOne('/api/v1/users/12/role');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ role: 'MANAGER' });
+    request.flush(body);
+
+    expect(result).toEqual({ ok: true, body });
+  });
+
+  it('returns a failed change of the role as a result, not an error', () => {
+    const error = { status: 409, code: 'LAST_ADMIN', message: 'The last administrator cannot be removed', fieldErrors: {} };
+    let result: ApiResult<UserResponse> | undefined;
+    service.updateRole(1, 'USER').subscribe((value) => (result = value));
+
+    httpMock.expectOne('/api/v1/users/1/role').flush(error, { status: 409, statusText: 'Conflict' });
 
     expect(result).toEqual({ ok: false, failure: { kind: 'api', error } });
   });
