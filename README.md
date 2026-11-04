@@ -262,7 +262,9 @@ test('requires both fields and sends nothing', { tag: '@E2E-019' }, async ({ api
 `--grep` matches the tags as well as the titles, so one test runs by its id, whatever its file and
 its project: `npx playwright test --grep @E2E-019` (with `--headed --workers=1 --timeout=0` in a
 Debug configuration of the IDE, to step through it in the browser). A test of `e2e/integration/`
-runs with the checks of the backend before it.
+runs with the checks of the backend before it (`backend.setup.ts`); `--no-deps` leaves them out,
+e.g. `npx playwright test --grep @E2E-012 --no-deps`. Without them a stopped backend, or one without
+the administrator of the tests, fails the test itself, with a less clear message.
 
 A new test takes the next free id, which `npm run e2e:ids` prints; an id is never given again,
 not even that of a deleted test. The same script fails when a test has no id, or two, or shares one
