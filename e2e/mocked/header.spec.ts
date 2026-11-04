@@ -28,7 +28,7 @@ async function seedSignedIn(page: Page): Promise<void> {
   await seedSession(page, { accessToken: ACCESS_TOKEN, expiresAt: Date.now() + 1800_000 });
 }
 
-test('shows the email and the role as one line, the role as wide as its badge, before Sign out', async ({
+test('shows the email and the role as one line, the role as wide as its badge, before Sign out', { tag: '@E2E-015' }, async ({
   page,
   api,
 }) => {
@@ -60,7 +60,7 @@ test('shows the email and the role as one line, the role as wide as its badge, b
   expect(signOut.x - role.box.right).toBeCloseTo(16, 0);
 });
 
-test('keeps the tab, the email, the role and Sign out in a row within the page', async ({ page, api }) => {
+test('keeps the tab, the email, the role and Sign out in a row within the page', { tag: '@E2E-016' }, async ({ page, api }) => {
   await seedSignedIn(page);
   // The widest lowercase letter: the backend lowers emails, so no cut email is wider than this one.
   api.respond('GET /auth/me', currentUser('MANAGER', `${'m'.repeat(40)}@mmmmmmmmmmmm.mm`));
@@ -85,7 +85,7 @@ test('keeps the tab, the email, the role and Sign out in a row within the page',
   expect(signOut.x + signOut.width).toBeCloseTo(await headerEnd(page), 0);
 });
 
-test('keeps Sign in and Sign up on the right without a session', async ({ page }) => {
+test('keeps Sign in and Sign up on the right without a session', { tag: '@E2E-017' }, async ({ page }) => {
   const header = new AppHeader(page);
 
   await page.goto('/');

@@ -9,7 +9,7 @@ import { SESSION_KEY, readSession } from '../support/session';
 // `test` of Playwright itself, not of `support/fixtures`: these tests talk to the real backend.
 
 test.describe('Sign-up and sign-in against the backend', () => {
-  test('registers, then signs in with the stored email and shows it with the role', async ({ page }) => {
+  test('registers, then signs in with the stored email and shows it with the role', { tag: '@E2E-001' }, async ({ page }) => {
     // The backend lowers the email: the sign-in page gets the stored one.
     const email = uniqueEmail();
     const register = new RegisterPage(page);
@@ -37,7 +37,7 @@ test.describe('Sign-up and sign-in against the backend', () => {
     expect(session?.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  test('lists the rules of the password that the backend reports', async ({ page }) => {
+  test('lists the rules of the password that the backend reports', { tag: '@E2E-002' }, async ({ page }) => {
     const register = new RegisterPage(page);
     await register.open();
     await register.fill(uniqueEmail(), 'secret');
@@ -49,7 +49,7 @@ test.describe('Sign-up and sign-in against the backend', () => {
     expect(await errors.count()).toBeGreaterThan(1);
   });
 
-  test('offers to sign in when the email is already registered', async ({ page, request }) => {
+  test('offers to sign in when the email is already registered', { tag: '@E2E-003' }, async ({ page, request }) => {
     const email = uniqueEmail();
     await createUser(request, email);
 
@@ -62,7 +62,7 @@ test.describe('Sign-up and sign-in against the backend', () => {
     await expect(register.signInInstead).toBeVisible();
   });
 
-  test('rejects a wrong password', async ({ page, request }) => {
+  test('rejects a wrong password', { tag: '@E2E-004' }, async ({ page, request }) => {
     const email = uniqueEmail();
     await createUser(request, email);
 
@@ -93,7 +93,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     return page.evaluate(() => fetch('/api/v1/auth/refresh', { method: 'POST' }).then((response) => response.status));
   }
 
-  test('keeps the refresh token in an HttpOnly cookie only', async ({ page, context, request }) => {
+  test('keeps the refresh token in an HttpOnly cookie only', { tag: '@E2E-005' }, async ({ page, context, request }) => {
     await signIn(page, request);
 
     const cookie = (await context.cookies()).find((candidate) => candidate.name === 'droso_refresh');
@@ -103,7 +103,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     expect(await page.evaluate(() => document.cookie)).not.toContain('droso_refresh');
   });
 
-  test('signs in again without a password once the token has expired', async ({ page, request }) => {
+  test('signs in again without a password once the token has expired', { tag: '@E2E-006' }, async ({ page, request }) => {
     const email = await signIn(page, request);
     const before = (await readSession(page))!;
 
@@ -120,7 +120,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     expect(after?.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  test('revokes the refresh token on a sign-out', async ({ page, request }) => {
+  test('revokes the refresh token on a sign-out', { tag: '@E2E-007' }, async ({ page, request }) => {
     await signIn(page, request);
 
     await new AppHeader(page).signOut.click();
@@ -130,7 +130,7 @@ test.describe('Refresh token and sign-out against the backend', () => {
     await expect.poll(() => refreshStatus(page)).toBe(401);
   });
 
-  test('shows the profile and logs out every session of the user, in every browser', async ({ page, browser, request }) => {
+  test('shows the profile and logs out every session of the user, in every browser', { tag: '@E2E-008' }, async ({ page, browser, request }) => {
     const email = await signIn(page, request);
     // A second browser of the same user: its refresh cookie is ended as well.
     const otherContext = await browser.newContext();

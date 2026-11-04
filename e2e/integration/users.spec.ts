@@ -8,7 +8,7 @@ import { ADMIN, PASSWORD, createUser, signIn, uniqueEmail } from '../support/bac
 // it, not the users in it: the earlier runs leave users behind.
 
 test.describe('The list of users against the backend', () => {
-  test('shows the administrator the list, a page of the size chosen', async ({ page, request }) => {
+  test('shows the administrator the list, a page of the size chosen', { tag: '@E2E-009' }, async ({ page, request }) => {
     // At least two users, so that a page of one row is not the whole list.
     await createUser(request, uniqueEmail());
     await signIn(page, ADMIN.email, ADMIN.password);
@@ -36,7 +36,7 @@ test.describe('The list of users against the backend', () => {
     await expect(list.rows).toHaveCount(1);
   });
 
-  test('shows the administrator with the role ADMIN', async ({ page }) => {
+  test('shows the administrator with the role ADMIN', { tag: '@E2E-010' }, async ({ page }) => {
     await signIn(page, ADMIN.email, ADMIN.password);
     const list = new UsersPage(page);
 
@@ -51,7 +51,7 @@ test.describe('The list of users against the backend', () => {
     await expect(list.updateRoleButton(ADMIN.email), 'nor change their own role').toHaveCount(0);
   });
 
-  test('lists the newest first, and the emails in the order of the backend on a click', async ({ page, request }) => {
+  test('lists the newest first, and the emails in the order of the backend on a click', { tag: '@E2E-011' }, async ({ page, request }) => {
     const newest = uniqueEmail();
     await createUser(request, newest);
     await signIn(page, ADMIN.email, ADMIN.password);
@@ -73,7 +73,7 @@ test.describe('The list of users against the backend', () => {
     expect(emails).toEqual([...emails].sort());
   });
 
-  test('deletes a user after a confirmation: gone from the list, and the sign-in fails', async ({ page, request }) => {
+  test('deletes a user after a confirmation: gone from the list, and the sign-in fails', { tag: '@E2E-012' }, async ({ page, request }) => {
     const email = uniqueEmail();
     await createUser(request, email);
     await signIn(page, ADMIN.email, ADMIN.password);
@@ -94,7 +94,7 @@ test.describe('The list of users against the backend', () => {
     expect(login.status()).toBe(401);
   });
 
-  test('changes the role of a user after choosing it in a dialog', async ({ page, request }) => {
+  test('changes the role of a user after choosing it in a dialog', { tag: '@E2E-013' }, async ({ page, request }) => {
     const email = uniqueEmail();
     await createUser(request, email);
     await signIn(page, ADMIN.email, ADMIN.password);
@@ -114,7 +114,7 @@ test.describe('The list of users against the backend', () => {
     await expect(list.rowOf(email).locator('td').nth(2)).toHaveText('MANAGER');
   });
 
-  test('gives a user without the permission no tab, and the refusal of the backend', async ({ page, request }) => {
+  test('gives a user without the permission no tab, and the refusal of the backend', { tag: '@E2E-014' }, async ({ page, request }) => {
     const email = uniqueEmail();
     await createUser(request, email);
     await signIn(page, email);

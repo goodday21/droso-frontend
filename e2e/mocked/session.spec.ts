@@ -31,7 +31,7 @@ async function expectSignedIn(header: AppHeader): Promise<void> {
 }
 
 test.describe('Session', () => {
-  test('is forgotten on a sign-out, which revokes the refresh cookie and opens the sign-in', async ({ page, api }) => {
+  test('is forgotten on a sign-out, which revokes the refresh cookie and opens the sign-in', { tag: '@E2E-030' }, async ({ page, api }) => {
     await signIn(page, api);
     api.respond('POST /auth/logout', loggedOut());
     const header = new AppHeader(page);
@@ -44,7 +44,7 @@ test.describe('Session', () => {
     await expect.poll(() => api.requests('POST /auth/logout').length).toBe(1);
   });
 
-  test('survives a reload and is shared by a new tab, with the role of the user', async ({ page, context, api }) => {
+  test('survives a reload and is shared by a new tab, with the role of the user', { tag: '@E2E-031' }, async ({ page, context, api }) => {
     await signIn(page, api);
     await expectSignedIn(new AppHeader(page));
 
@@ -56,7 +56,7 @@ test.describe('Session', () => {
     await expectSignedIn(new AppHeader(other));
   });
 
-  test('ends in every tab on a sign-out in one of them, which all open the sign-in', async ({ page, context, api }) => {
+  test('ends in every tab on a sign-out in one of them, which all open the sign-in', { tag: '@E2E-032' }, async ({ page, context, api }) => {
     await signIn(page, api);
     api.respond('POST /auth/logout', loggedOut());
     const other = await context.newPage();
@@ -70,7 +70,7 @@ test.describe('Session', () => {
     await expectSignedOut(new AppHeader(page));
   });
 
-  test('is renewed at the start from the refresh cookie when the token has expired', async ({ page, api }) => {
+  test('is renewed at the start from the refresh cookie when the token has expired', { tag: '@E2E-033' }, async ({ page, api }) => {
     await seedSession(page, { accessToken: ACCESS_TOKEN, expiresAt: Date.now() - 1000 });
     api.respond('POST /auth/refresh', refreshed());
     api.respond('GET /auth/me', currentUser('MANAGER'));
@@ -81,7 +81,7 @@ test.describe('Session', () => {
     expect((await readSession(page))?.accessToken).toBe(REFRESHED_TOKEN);
   });
 
-  test('stays ended when the refresh cookie is refused at the start', async ({ page, api }) => {
+  test('stays ended when the refresh cookie is refused at the start', { tag: '@E2E-034' }, async ({ page, api }) => {
     await seedSession(page, { accessToken: ACCESS_TOKEN, expiresAt: Date.now() - 1000 });
 
     await page.goto('/');
@@ -91,7 +91,7 @@ test.describe('Session', () => {
     expect(api.requests('POST /auth/refresh')).toHaveLength(1);
   });
 
-  test('is renewed once for two tabs whose token expired at the same time', async ({ page, context, api }) => {
+  test('is renewed once for two tabs whose token expired at the same time', { tag: '@E2E-035' }, async ({ page, context, api }) => {
     const expired = { accessToken: ACCESS_TOKEN, expiresAt: Date.now() - 1000 };
     const other = await context.newPage();
     await seedSession(page, expired);
@@ -110,7 +110,7 @@ test.describe('Session', () => {
     expect(api.requests('POST /auth/refresh')).toHaveLength(1);
   });
 
-  test('ends with a notice when the backend rejects the token even after a refresh', async ({ page, api }) => {
+  test('ends with a notice when the backend rejects the token even after a refresh', { tag: '@E2E-036' }, async ({ page, api }) => {
     await seedSession(page, { accessToken: ACCESS_TOKEN, expiresAt: Date.now() + 900_000 });
     api.respond('GET /auth/me', apiError(401, 'UNAUTHORIZED'));
     api.respond('POST /auth/refresh', refreshed());
@@ -125,7 +125,7 @@ test.describe('Session', () => {
   });
 });
 
-test('links lead between the pages', async ({ page }) => {
+test('links lead between the pages', { tag: '@E2E-037' }, async ({ page }) => {
   const header = new AppHeader(page);
   const register = new RegisterPage(page);
   const login = new LoginPage(page);
