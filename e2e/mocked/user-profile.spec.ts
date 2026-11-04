@@ -16,7 +16,7 @@ test.describe('User profile', () => {
     api.respond('GET /auth/me', currentUser('MANAGER'));
   });
 
-  test('opens from the tab of the header, below the header, and Back returns', async ({ page }) => {
+  test('opens from the tab of the header, below the header, and Back returns', { tag: '@E2E-038' }, async ({ page }) => {
     const profile = new UserProfilePage(page);
     const header = new AppHeader(page);
     await page.goto('/');
@@ -36,7 +36,7 @@ test.describe('User profile', () => {
     await expect(page).toHaveURL('/');
   });
 
-  test('closes the dialog on a click outside it', async ({ page }) => {
+  test('closes the dialog on a click outside it', { tag: '@E2E-039' }, async ({ page }) => {
     const profile = new UserProfilePage(page);
     await profile.open();
     await profile.logoutAll.click();
@@ -48,7 +48,7 @@ test.describe('User profile', () => {
     await expect(profile.dialog).toBeHidden();
   });
 
-  test('closes the dialog on Escape, but neither way while the call is pending', async ({ page, api }) => {
+  test('closes the dialog on Escape, but neither way while the call is pending', { tag: '@E2E-040' }, async ({ page, api }) => {
     const release = api.hold('POST /auth/logout-all', loggedOut());
     const profile = new UserProfilePage(page);
     await profile.open();
@@ -70,7 +70,7 @@ test.describe('User profile', () => {
     await expect(profile.dialog).toBeHidden();
   });
 
-  test('logs out every session after a confirmation, and every tab opens the sign-in', async ({ page, context, api }) => {
+  test('logs out every session after a confirmation, and every tab opens the sign-in', { tag: '@E2E-041' }, async ({ page, context, api }) => {
     api.respond('POST /auth/logout-all', loggedOut());
     const profile = new UserProfilePage(page);
     await profile.open();

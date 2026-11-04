@@ -251,6 +251,24 @@ where each kind of test belongs.
 
 To run one file or one test: `npm run e2e -- e2e/mocked/login.spec.ts` or `npm run e2e -- -g "pending"`.
 
+### The ids of the tests
+
+Every browser test has an id, a tag of `@E2E-` and three digits, given after its title:
+
+```ts
+test('requires both fields and sends nothing', { tag: '@E2E-019' }, async ({ api }) => {
+```
+
+`--grep` matches the tags as well as the titles, so one test runs by its id, whatever its file and
+its project: `npx playwright test --grep @E2E-019` (with `--headed --workers=1 --timeout=0` in a
+Debug configuration of the IDE, to step through it in the browser). A test of `e2e/integration/`
+runs with the checks of the backend before it.
+
+A new test takes the next free id, which `npm run e2e:ids` prints; an id is never given again,
+not even that of a deleted test. The same script fails when a test has no id, or two, or shares one
+with another test (`e2e/support/test-ids-reporter.ts`); CI runs it before the browser tests. The
+checks of `*.setup.ts` have no id.
+
 ### Against the real backend
 
 The tests of `e2e/integration/` go through the proxy of the dev server to the backend, so start it

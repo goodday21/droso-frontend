@@ -16,7 +16,7 @@ test.describe('Sign-in page', () => {
     await login.open();
   });
 
-  test('shows the password on a click of the eye, and hides it on the next one', async () => {
+  test('shows the password on a click of the eye, and hides it on the next one', { tag: '@E2E-018' }, async () => {
     await login.password.fill(PASSWORD);
     await expect(login.password).toHaveAttribute('type', 'password');
 
@@ -28,7 +28,7 @@ test.describe('Sign-in page', () => {
     await expect(login.password).toHaveAttribute('type', 'password');
   });
 
-  test('requires both fields and sends nothing', async ({ api }) => {
+  test('requires both fields and sends nothing', { tag: '@E2E-019' }, async ({ api }) => {
     await login.submit.click();
 
     await expect(login.fieldErrors('email')).toHaveText(['is required']);
@@ -36,7 +36,7 @@ test.describe('Sign-in page', () => {
     expect(api.requests('POST /auth/login')).toEqual([]);
   });
 
-  test('limits the length of both fields and sends nothing', async ({ api }) => {
+  test('limits the length of both fields and sends nothing', { tag: '@E2E-020' }, async ({ api }) => {
     await login.fill(`${'a'.repeat(245)}@gmail.com`, `${'Aa1!'.repeat(16)}x`);
     await login.submit.click();
 
@@ -45,7 +45,7 @@ test.describe('Sign-in page', () => {
     expect(api.requests('POST /auth/login')).toEqual([]);
   });
 
-  test('keeps the token and opens the root page', async ({ page, api }) => {
+  test('keeps the token and opens the root page', { tag: '@E2E-021' }, async ({ page, api }) => {
     api.respond('POST /auth/login', loggedIn(1800));
     api.respond('GET /auth/me', currentUser());
 
@@ -63,7 +63,7 @@ test.describe('Sign-in page', () => {
     expect(session?.expiresAt).toBeLessThanOrEqual(Date.now() + 1800_000);
   });
 
-  test('rejects wrong credentials and clears the password', async ({ page, api }) => {
+  test('rejects wrong credentials and clears the password', { tag: '@E2E-022' }, async ({ page, api }) => {
     api.respond('POST /auth/login', apiError(401, 'INVALID_CREDENTIALS'));
 
     await login.fill(EMAIL, 'Wr0ng-Secret!');
@@ -78,7 +78,7 @@ test.describe('Sign-in page', () => {
     expect(await readSession(page)).toBeNull();
   });
 
-  test('sends one request while the first one is pending', async ({ page, api }) => {
+  test('sends one request while the first one is pending', { tag: '@E2E-023' }, async ({ page, api }) => {
     const release = api.hold('POST /auth/login', loggedIn());
     api.respond('GET /auth/me', currentUser());
 

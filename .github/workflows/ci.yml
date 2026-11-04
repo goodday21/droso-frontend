@@ -45,6 +45,10 @@ jobs:
       - name: Type-check the browser tests
         run: npx tsc -p e2e
 
+      # Lists the tests of every project, the integration ones included, without running them.
+      - name: Check the ids of the browser tests
+        run: npm run e2e:ids
+
       # Starts the dev server itself (webServer of playwright.config.ts).
       - run: npm run e2e
 

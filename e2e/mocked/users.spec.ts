@@ -19,7 +19,7 @@ test.describe('Users', () => {
     api.respond('GET /users', usersPage(users(45)));
   });
 
-  test('opens from the tab of the header, below the header, and Back leaves the list', async ({ page }) => {
+  test('opens from the tab of the header, below the header, and Back leaves the list', { tag: '@E2E-042' }, async ({ page }) => {
     const list = new UsersPage(page);
     const header = new AppHeader(page);
     await page.goto('/');
@@ -45,7 +45,7 @@ test.describe('Users', () => {
   });
 
   // The emails compare byte by byte, as on the backend: `user19@` < `user2@`, the digits before `@`.
-  test('keeps the page, its size and the order in the URL across a reload', async ({ page }) => {
+  test('keeps the page, its size and the order in the URL across a reload', { tag: '@E2E-043' }, async ({ page }) => {
     const list = new UsersPage(page);
     await list.open();
     await expect(list.rows).toHaveCount(20);
@@ -68,7 +68,7 @@ test.describe('Users', () => {
     await expect(list.rows.first()).toContainText('user19@example.com');
   });
 
-  test('Back opens the root when the list was opened directly, even after paging', async ({ page }) => {
+  test('Back opens the root when the list was opened directly, even after paging', { tag: '@E2E-044' }, async ({ page }) => {
     const list = new UsersPage(page);
     await list.open('?size=10');
     await list.next.click();
@@ -79,7 +79,7 @@ test.describe('Users', () => {
     await expect(page).toHaveURL('/');
   });
 
-  test('grows with its rows up to the bottom of the window, then scrolls under a fixed head', async ({ page }) => {
+  test('grows with its rows up to the bottom of the window, then scrolls under a fixed head', { tag: '@E2E-045' }, async ({ page }) => {
     const list = new UsersPage(page);
     await list.open('?size=1');
     await expect(list.rows).toHaveCount(1);
@@ -112,7 +112,7 @@ test.describe('Users', () => {
     expect(await list.head.boundingBox(), 'the head stays where it was').toEqual(head);
   });
 
-  test('gives the email the rest of the width of the table, and cuts it there', async ({ page, api }) => {
+  test('gives the email the rest of the width of the table, and cuts it there', { tag: '@E2E-046' }, async ({ page, api }) => {
     const long = `${'qwe.very.long.name.'.repeat(8)}x@gmail.com`;
     const user: MockUser = { id: 1, email: long, role: 'MANAGER', createdAt: '2026-10-30T09:00:00.123456Z' };
     api.respond('GET /users', usersPage([user]));

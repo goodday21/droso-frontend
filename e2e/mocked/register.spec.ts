@@ -17,7 +17,7 @@ test.describe('Sign-up page', () => {
     await registerPage.open();
   });
 
-  test('requires both fields and sends nothing', async ({ api }) => {
+  test('requires both fields and sends nothing', { tag: '@E2E-024' }, async ({ api }) => {
     await registerPage.submit.click();
 
     await expect(registerPage.fieldErrors('email')).toHaveText(['is required']);
@@ -25,7 +25,7 @@ test.describe('Sign-up page', () => {
     expect(api.requests('POST /auth/register')).toEqual([]);
   });
 
-  test('limits the length of both fields and sends nothing', async ({ api }) => {
+  test('limits the length of both fields and sends nothing', { tag: '@E2E-025' }, async ({ api }) => {
     await registerPage.fill(`${'a'.repeat(245)}@gmail.com`, `${'Aa1!'.repeat(16)}x`);
     await registerPage.submit.click();
 
@@ -34,7 +34,7 @@ test.describe('Sign-up page', () => {
     expect(api.requests('POST /auth/register')).toEqual([]);
   });
 
-  test('opens the sign-in page with the email of the response', async ({ page, api }) => {
+  test('opens the sign-in page with the email of the response', { tag: '@E2E-026' }, async ({ page, api }) => {
     // The backend lowers the email: the page shows the stored one, not the one typed.
     api.respond('POST /auth/register', userCreated(EMAIL));
 
@@ -49,7 +49,7 @@ test.describe('Sign-up page', () => {
     expect(api.requests('POST /auth/register')).toEqual([{ email: 'Qwe@Gmail.com', password: PASSWORD }]);
   });
 
-  test('lists every rule of the password that the backend reports', async ({ api }) => {
+  test('lists every rule of the password that the backend reports', { tag: '@E2E-027' }, async ({ api }) => {
     api.respond(
       'POST /auth/register',
       apiError(400, 'VALIDATION_ERROR', { password: 'must contain a digit; must contain an upper case letter' }),
@@ -66,7 +66,7 @@ test.describe('Sign-up page', () => {
     await expect(registerPage.alert).toBeHidden();
   });
 
-  test('offers to sign in when the email is already registered', async ({ page, api }) => {
+  test('offers to sign in when the email is already registered', { tag: '@E2E-028' }, async ({ page, api }) => {
     api.respond('POST /auth/register', apiError(409, 'EMAIL_ALREADY_REGISTERED', { email: 'is already registered' }));
 
     await registerPage.fill(EMAIL, PASSWORD);
@@ -85,7 +85,7 @@ test.describe('Sign-up page', () => {
     await expect(loginPage.password).toHaveAttribute('aria-invalid', 'false');
   });
 
-  test('sends one request while the first one is pending', async ({ page, api }) => {
+  test('sends one request while the first one is pending', { tag: '@E2E-029' }, async ({ page, api }) => {
     const release = api.hold('POST /auth/register', userCreated(EMAIL));
 
     await registerPage.fill(EMAIL, PASSWORD);

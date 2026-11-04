@@ -9,7 +9,8 @@
     "e2e": "playwright test --project=mocked",
     "e2e:ui": "playwright test --project=mocked --ui",
     "e2e:integration": "playwright test --project=integration",
-    "e2e:integration:ui": "playwright test --project=integration --ui"
+    "e2e:integration:ui": "playwright test --project=integration --ui",
+    "e2e:ids": "playwright test --list --reporter=./e2e/support/test-ids-reporter.ts"
   },
   "dependencies": {
     "@angular/cdk": "^22.2.5",
