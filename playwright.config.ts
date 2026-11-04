@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const CI = !!process.env['CI'];
+// An IDE (WebStorm) adds its own reporter through this variable, to the reporters of the config:
+// `list` would print the output of every test a second time in the tree of its results.
+const IDE = !!process.env['PW_TEST_REPORTER'];
 
 /**
  * Browser tests of the pages, run against the dev server.
@@ -18,7 +21,11 @@ export default defineConfig({
   forbidOnly: CI,
   // One retry on CI records a trace of the failure; locally a failure is reported at once.
   retries: CI ? 1 : 0,
-  reporter: CI ? [['github'], ['html', { open: 'never' }]] : [['list'], ['html', { open: 'never' }]],
+  reporter: CI
+    ? [['github'], ['html', { open: 'never' }]]
+    : IDE
+      ? [['html', { open: 'never' }]]
+      : [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:4200',
     trace: 'on-first-retry',
