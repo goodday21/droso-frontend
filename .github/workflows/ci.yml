@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+  workflow_dispatch:
   pull_request:
 
 # A newer push to the same branch or pull request cancels the run that is still in progress.
