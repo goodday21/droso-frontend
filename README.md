@@ -317,6 +317,10 @@ the secret `BACKEND_DEPLOY_KEY` of this repository. Pull requests from forks get
 this job fails for them.
 
 Both jobs set up Node and Playwright with the local action `.github/actions/setup-playwright`.
+Its installation of the system libraries with apt sometimes stalls on the Ubuntu mirror, so each
+attempt is stopped after 4 minutes and retried up to three times. Every job has a
+`timeout-minutes` (10, 20 and 30): a job that still stalls fails instead of holding the runner for
+the 6 hours of GitHub's default.
 
 ## Manual walkthrough
 

@@ -26,10 +26,19 @@ runs:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
-    - if: steps.playwright-cache.outputs.cache-hit != 'true'
-      run: npx playwright install --with-deps chromium
-      shell: bash
-
-    - if: steps.playwright-cache.outputs.cache-hit == 'true'
-      run: npx playwright install-deps chromium
+    # The system libraries come from the Ubuntu mirror of the runner with apt, which sometimes stalls
+    # in the middle of a download and never fails on its own (the step normally takes under a
+    # minute). A step of a composite action cannot have timeout-minutes, so each attempt is bounded
+    # by `timeout` (which stops sudo and apt with it) and retried on a new connection.
+    - name: Install the browser and its system libraries
+      env:
+        INSTALL: ${{ steps.playwright-cache.outputs.cache-hit == 'true' && 'install-deps chromium' || 'install --with-deps chromium' }}
+      run: |
+        for attempt in 1 2 3; do
+          timeout --kill-after=30s 4m npx playwright $INSTALL && exit 0
+          echo "::warning::npx playwright $INSTALL failed or stalled (attempt $attempt of 3)"
+          # An apt killed while it was installing leaves dpkg half-configured.
+          sudo dpkg --configure -a || true
+        done
+        exit 1
       shell: bash
