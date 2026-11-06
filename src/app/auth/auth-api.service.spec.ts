@@ -91,7 +91,7 @@ describe('AuthApiService', () => {
       id: 1,
       email: 'qwe.qwe+1@gmail.com',
       role: 'MANAGER',
-      permissions: ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE'],
+      permissions: ['TICKET_READ', 'TICKET_CREATE', 'TICKET_UPDATE'],
       createdAt: '2026-10-27T10:15:30.123456Z',
     };
     let result: ApiResult<CurrentUser> | undefined;

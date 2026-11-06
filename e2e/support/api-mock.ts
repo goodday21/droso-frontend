@@ -2,7 +2,7 @@ import { BrowserContext, Route } from '@playwright/test';
 
 /**
  * A call of the API: the method and the path after `/api/v1`, e.g. `'POST /auth/login'`. A segment
- * written `:name` matches any value, e.g. `'GET /defects/:id'`.
+ * written `:name` matches any value, e.g. `'GET /tickets/:id'`.
  */
 export type Endpoint = `${'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} /${string}`;
 

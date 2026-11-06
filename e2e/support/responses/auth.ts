@@ -29,9 +29,9 @@ export function loggedOut(): MockResponse {
 /** HTTP 200 of `GET /auth/me`, with the permissions that the backend gives to the role. */
 export function currentUser(role: 'USER' | 'MANAGER' | 'ADMIN' = 'USER', email = 'qwe@gmail.com'): MockResponse {
   const permissions = {
-    USER: ['DEFECT_READ', 'DEFECT_CREATE'],
-    MANAGER: ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE'],
-    ADMIN: ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE', 'USER_MANAGE'],
+    USER: ['TICKET_READ', 'TICKET_CREATE'],
+    MANAGER: ['TICKET_READ', 'TICKET_CREATE', 'TICKET_UPDATE'],
+    ADMIN: ['TICKET_READ', 'TICKET_CREATE', 'TICKET_UPDATE', 'USER_MANAGE'],
   }[role];
   return {
     status: 200,

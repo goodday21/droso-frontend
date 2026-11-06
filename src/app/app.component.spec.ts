@@ -77,11 +77,11 @@ describe('AppComponent', () => {
   // The permission decides, not the role: which role has it is the business of the backend.
   it('shows the tab Users, first, only to a user with the permission USER_MANAGE', () => {
     TestBed.inject(AuthSessionService).save('eyJ.x.y', 1800);
-    user.set(userWithRole('MANAGER', ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE']));
+    user.set(userWithRole('MANAGER', ['TICKET_READ', 'TICKET_CREATE', 'TICKET_UPDATE']));
     const fixture = render();
     expect(itemsOf(fixture)).toEqual(['User Profile', 'qwe@gmail.com', 'MANAGER', 'Sign out']);
 
-    user.set(userWithRole('ADMIN', ['DEFECT_READ', 'USER_MANAGE']));
+    user.set(userWithRole('ADMIN', ['TICKET_READ', 'USER_MANAGE']));
     fixture.detectChanges();
 
     expect(itemsOf(fixture)).toEqual(['Users', 'User Profile', 'qwe@gmail.com', 'ADMIN', 'Sign out']);

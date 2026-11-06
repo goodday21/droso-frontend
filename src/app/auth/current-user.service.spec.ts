@@ -10,7 +10,7 @@ describe('CurrentUserService', () => {
     id: 1,
     email: 'qwe@gmail.com',
     role: 'ADMIN',
-    permissions: ['DEFECT_READ', 'DEFECT_CREATE', 'DEFECT_UPDATE', 'USER_MANAGE'],
+    permissions: ['TICKET_READ', 'TICKET_CREATE', 'TICKET_UPDATE', 'USER_MANAGE'],
     createdAt: '2026-10-27T10:15:30.123456Z',
   };
 
